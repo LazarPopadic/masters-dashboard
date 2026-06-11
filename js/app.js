@@ -82,23 +82,35 @@
 
   let mainBound = false;
   function showApp() {
-    $("#lock").hidden = true;
-    $("#app").hidden = false;
+    // Render the app FIRST, while the lock screen is still visible. Only reveal
+    // it once rendering has succeeded — that way a render error can never leave
+    // a blank page (the lock + its error message stay on screen instead).
     $("#topbar-date").textContent = fmtToday();
     $("#footer-note").textContent = DATA.meta.note;
     if (!mainBound) { bindMain(); mainBound = true; }
     switchTab(state.tab || "overview");
+    $("#app").hidden = false;
+    $("#lock").hidden = true;
   }
 
   $("#lock-form").addEventListener("submit", async e => {
     e.preventDefault();
     const btn = $("#lock-btn");
     btn.disabled = true; btn.textContent = "Unlocking…";
+    $("#lock-error").hidden = true;
     try {
       await unlock($("#lock-pass").value, $("#lock-remember").checked);
       showApp();
-    } catch {
-      $("#lock-error").hidden = false;
+    } catch (err) {
+      console.error("Unlock failed:", err);
+      const el = $("#lock-error");
+      // A decryption failure (wrong password) surfaces as an OperationError.
+      // Anything else is a real bug we want to see, not hide behind "wrong password".
+      const wrongPass = err && (err.name === "OperationError" || err.name === "InvalidAccessError");
+      el.textContent = wrongPass
+        ? "Wrong password — try again."
+        : "Something went wrong opening the dashboard: " + (err && err.message ? err.message : err);
+      el.hidden = false;
       $("#lock-pass").value = "";
       $("#lock-pass").focus();
     } finally {
