@@ -23,6 +23,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Make the HTML `hidden` attribute reliably hide elements. Class selectors like
+   `.lock { display:flex }` otherwise out-rank the browser's default [hidden]
+   rule, which would leave a hidden element (e.g. the disabled lock screen)
+   still visible. This keeps `hidden` authoritative everywhere. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
