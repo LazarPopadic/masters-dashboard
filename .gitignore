@@ -1,0 +1,4 @@
+# PRIVATE plaintext seed data — must never reach GitHub.
+data.source.js
+
+.DS_Store

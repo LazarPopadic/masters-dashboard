@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Master's Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ======================= LOCK SCREEN ======================= -->
+  <div id="lock" class="lock">
+    <div class="lock-card">
+      <div class="lock-mark">M</div>
+      <h1>Master's Dashboard</h1>
+      <p class="lock-sub">Private. Enter the password to unlock.</p>
+      <form id="lock-form">
+        <input type="password" id="lock-pass" placeholder="Password" autocomplete="current-password" autofocus>
+        <label class="lock-remember">
+          <input type="checkbox" id="lock-remember"> Remember on this device
+        </label>
+        <button type="submit" id="lock-btn">Unlock</button>
+        <p id="lock-error" class="lock-error" hidden>Wrong password — try again.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================= APP SHELL ======================= -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="topbar-title">
+        <span class="topbar-mark">M</span>
+        <span>Master's Dashboard</span>
+        <span class="topbar-date" id="topbar-date"></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-export" class="ghost" title="Download your statuses, notes and checkmarks as a backup file">Export</button>
+        <button id="btn-import" class="ghost" title="Restore from a backup file">Import</button>
+        <input type="file" id="import-file" accept=".json" hidden>
+        <button id="btn-lock" class="ghost" title="Lock the dashboard on this device">Lock</button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="tab active">Overview</button>
+      <button data-tab="programs" class="tab">Programmes</button>
+      <button data-tab="cities" class="tab">Cities</button>
+      <button data-tab="timeline" class="tab">Timeline</button>
+      <button data-tab="checklist" class="tab">Checklist</button>
+      <button data-tab="summer" class="tab">Summer 2026</button>
+      <button data-tab="profile" class="tab">Profile</button>
+      <button data-tab="strategy" class="tab">Strategy</button>
+    </nav>
+
+    <main id="main"></main>
+
+    <footer class="footer">
+      <p id="footer-note"></p>
+    </footer>
+  </div>
+
+  <script src="js/crypto.js"></script>
+  <script src="js/data.encrypted.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
