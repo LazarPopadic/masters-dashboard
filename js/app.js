@@ -6,6 +6,16 @@
 (() => {
   "use strict";
 
+  // ---------------------------------------------------------------------------
+  // PASSWORD LOCK SWITCH
+  // The lock screen is currently DISABLED — the dashboard opens straight away.
+  // To turn the password back on in future, set LOCK_ENABLED = true (and, if you
+  // want a different password, re-encrypt the data with tools/encrypt.html).
+  // All the lock + encryption code below is kept intact for that purpose.
+  // ---------------------------------------------------------------------------
+  const LOCK_ENABLED = false;
+  const AUTO_PASSWORD = "Gin1122!!"; // used only to auto-open when LOCK_ENABLED is false
+
   const STATE_KEY = "md_state_v1";
   const KEY_KEY = "md_key_v1";
   const STATUSES = ["Not started", "Researching", "Drafting", "Submitted", "Interview", "Offer", "Rejected", "Declined"];
@@ -679,6 +689,25 @@
 
   // ------------------------------------------------------------ boot
   (async () => {
+    if (!LOCK_ENABLED) {
+      // Lock disabled: open the dashboard directly, no password prompt.
+      $("#lock").hidden = true;
+      try {
+        const { data } = await DashCrypto.decryptJson(ENCRYPTED_DATA, AUTO_PASSWORD);
+        DATA = data;
+        showApp();
+      } catch (err) {
+        // Auto-open shouldn't fail, but if it ever does, fall back to the lock
+        // screen so the dashboard is still reachable rather than blank.
+        console.error("Auto-open failed, showing lock screen:", err);
+        $("#lock").hidden = false;
+        $("#lock-error").textContent = "Auto-open failed: " + (err && err.message ? err.message : err);
+        $("#lock-error").hidden = false;
+      }
+      return;
+    }
+    // Lock enabled: silent unlock if a key was remembered, else reveal the prompt.
     if (await tryRememberedKey()) showApp();
+    else $("#lock").hidden = false;
   })();
 })();
