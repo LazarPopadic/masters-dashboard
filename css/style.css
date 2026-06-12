@@ -14,6 +14,7 @@
   --accent: #6ea8d8;
   --reach: #e5484d;
   --match: #d29922;
+  --realistic: #4d9fbf;
   --likely: #46a758;
   --done: #46a758;
   --radius: 10px;
@@ -151,7 +152,9 @@ h3.sub { font-size: 15px; margin: 22px 0 10px; color: var(--text); }
 }
 .badge.reach  { color: var(--reach);  background: rgba(229,72,77,.12);  }
 .badge.match  { color: var(--match);  background: rgba(210,153,34,.12); }
+.badge.realistic { color: var(--realistic); background: rgba(77,159,191,.12); }
 .badge.likely { color: var(--likely); background: rgba(70,167,88,.12);  }
+.badge.dual   { color: var(--accent); background: rgba(110,168,216,.12); }
 .badge.neutral{ color: var(--text-2); background: var(--surface-2); }
 .badge.eu     { color: #58a6ff; background: rgba(88,166,255,.1); }
 .badge.warn   { color: var(--match); background: rgba(210,153,34,.12); }
@@ -190,7 +193,20 @@ h3.sub { font-size: 15px; margin: 22px 0 10px; color: var(--text); }
 }
 .prog-card.reach  { border-left-color: var(--reach); }
 .prog-card.match  { border-left-color: var(--match); }
+.prog-card.realistic { border-left-color: var(--realistic); }
 .prog-card.likely { border-left-color: var(--likely); }
+.prog-card.dual   { border-left-color: var(--accent); }
+
+.rank-no { color: var(--text-3); font-weight: 600; font-size: 13px; }
+
+/* Odds block */
+.odds-block .odds-range { font-family: var(--mono); font-size: 22px; font-weight: 700; display: inline-block; margin: 3px 10px 0 0; }
+.odds-block .odds-delta { color: var(--text-3); font-size: 12px; }
+.prl-toggle.on { color: var(--likely); border-color: var(--likely); }
+
+/* Cut cards (reserves tab) */
+.cut-card { opacity: .62; border-style: dashed; }
+.cut-card h4 .country { color: var(--text-3); font-weight: 400; font-size: 12.5px; }
 
 .prog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .prog-head h4 { font-size: 15.5px; }
@@ -246,7 +262,9 @@ select.status-reject { border-color: var(--reach) !important; color: var(--reach
 }
 .tl-item.reach::before { background: var(--reach); }
 .tl-item.match::before { background: var(--match); }
+.tl-item.realistic::before { background: var(--realistic); }
 .tl-item.likely::before { background: var(--likely); }
+.tl-item.dual::before { background: var(--accent); }
 .tl-item .tl-date { font-family: var(--mono); font-size: 12px; color: var(--text-2); margin-right: 8px; }
 .tl-today {
   position: relative; margin: 18px 0; padding: 6px 0 6px 0;

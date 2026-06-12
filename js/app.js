@@ -52,7 +52,18 @@
     return state.programs[id];
   }
 
-  function tierClass(t) { return t.toLowerCase(); }
+  // Tier vocab (v2): REACH | OPTIMISTIC MATCH | REALISTIC MATCH | LIKELY | DUAL
+  const TIERS = ["REACH", "OPTIMISTIC MATCH", "REALISTIC MATCH", "LIKELY"];
+  function tierClass(t) {
+    return { "REACH": "reach", "OPTIMISTIC MATCH": "match", "REALISTIC MATCH": "realistic", "LIKELY": "likely", "DUAL": "dual" }[t] || "neutral";
+  }
+  function tierLabel(t) {
+    return { "OPTIMISTIC MATCH": "OPT. MATCH", "REALISTIC MATCH": "REAL. MATCH", "DUAL": "DUAL-DEGREE" }[t] || t;
+  }
+  function prlOn() {
+    const f = state.filters || {};
+    return f.prl === undefined ? true : !!f.prl; // PRL assumed ON by default — it's the plan
+  }
 
   function verdictBadge(v) {
     if (v === "clear") return '<span class="badge ok">You clear it ✓</span>';
@@ -178,7 +189,7 @@
     state.tab = tab; saveState();
     $$(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
     const render = {
-      overview: renderOverview, programs: renderPrograms, cities: renderCities,
+      overview: renderOverview, programs: renderPrograms, reserves: renderReserves, cities: renderCities,
       timeline: renderTimeline, checklist: renderChecklist, summer: renderSummer,
       profile: renderProfile, strategy: renderStrategy
     }[tab] || renderOverview;
@@ -189,8 +200,11 @@
   // ------------------------------------------------------------ OVERVIEW
   function renderOverview() {
     const g = DATA.gpa;
-    const tiers = { REACH: 0, MATCH: 0, LIKELY: 0 };
-    DATA.programs.forEach(p => tiers[p.tier]++);
+    const tiers = {};
+    DATA.programs.forEach(p => { tiers[p.tier] = (tiers[p.tier] || 0) + 1; });
+    const tierBadges = TIERS.filter(t => tiers[t])
+      .map(t => `<span class="badge ${tierClass(t)}">${tiers[t]} ${tierLabel(t).toLowerCase()}</span>`).join(" ")
+      + (tiers.DUAL ? ` <span class="badge dual">+ dual-degree</span>` : "");
     const starred = DATA.programs.filter(p => progState(p.id).star).length;
 
     const summerDays = daysUntil(DATA.summer.decisionDate);
@@ -227,14 +241,10 @@
         </div>
         ${summerCard}
         <div class="card stat">
-          <div class="stat-label">Programmes</div>
-          <div class="stat-value">${DATA.programs.length}</div>
-          <div class="stat-note">
-            <span class="badge reach">${tiers.REACH} reach</span>
-            <span class="badge match">${tiers.MATCH} match</span>
-            <span class="badge likely">${tiers.LIKELY} likely</span>
-          </div>
-          <div class="stat-note">${starred ? starred + " starred for your apply list" : "Star programmes to build your ~8–10 apply list"}</div>
+          <div class="stat-label">Shortlist</div>
+          <div class="stat-value">15 + 1</div>
+          <div class="stat-note">${tierBadges}</div>
+          <div class="stat-note">${starred ? starred + " starred for your apply list" : "Star programmes to build your ~8 apply list"} · ${DATA.reserves.length} reserves + ${DATA.cuts.length} cuts in the Reserves tab</div>
         </div>
         <div class="card stat">
           <div class="stat-label">EU watch</div>
@@ -248,7 +258,7 @@
         ${upcoming.map(p => `
           <div class="card prog-card ${tierClass(p.tier)}">
             <div class="prog-head"><h4>${esc(p.university)} <span class="country">${esc(p.country)}</span></h4>
-            <span class="badge ${tierClass(p.tier)}">${p.tier}</span></div>
+            <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span></div>
             <div class="prog-programmes">${esc(p.programmes)}</div>
             ${deadlineChip(p)}
           </div>`).join("")}
@@ -287,40 +297,40 @@
   function renderPrograms() {
     const f = state.filters || {};
     const countries = [...new Set(DATA.programs.map(p => p.country))].sort();
-    const directions = [...new Set(DATA.programs.flatMap(p => p.direction))].sort();
 
     let list = DATA.programs.slice();
     if (f.tier) list = list.filter(p => p.tier === f.tier);
     if (f.country) list = list.filter(p => p.country === f.country);
-    if (f.direction) list = list.filter(p => p.direction.includes(f.direction));
     if (f.mine) list = list.filter(p => progState(p.id).star);
     if (f.q) {
       const q = f.q.toLowerCase();
-      list = list.filter(p => (p.university + p.programmes + p.country + p.focus).toLowerCase().includes(q));
+      list = list.filter(p => (p.university + p.programmes + p.country + p.whyKeep).toLowerCase().includes(q));
     }
-    const sort = f.sort || "deadline";
+    const sort = f.sort || "rank";
+    if (sort === "rank") list.sort((a, b) => a.rank - b.rank);
     if (sort === "deadline") list.sort((a, b) => (a.deadlineSort || "9999").localeCompare(b.deadlineSort || "9999"));
-    if (sort === "tier") { const o = { REACH: 0, MATCH: 1, LIKELY: 2 }; list.sort((a, b) => o[a.tier] - o[b.tier]); }
+    if (sort === "tier") { const o = { "DUAL": 0, "REACH": 1, "OPTIMISTIC MATCH": 2, "REALISTIC MATCH": 3, "LIKELY": 4 }; list.sort((a, b) => o[a.tier] - o[b.tier]); }
     if (sort === "name") list.sort((a, b) => a.university.localeCompare(b.university));
 
+    const prl = prlOn();
     return `
-      <h2 class="section">Programmes</h2>
-      <p class="section-sub">All ${DATA.programs.length} on the long list — the goal is to star your real ~8–10 by mid-October 2026. Statuses and notes save automatically on this device.</p>
+      <h2 class="section">Programmes — the ranked shortlist</h2>
+      <p class="section-sub">${esc(DATA.oddsInfo.basis)} ${esc(DATA.oddsInfo.provenance)}</p>
 
       <div class="prog-filters">
+        <button class="toggle-btn prl-toggle ${prl ? "on" : ""}" data-filter-toggle="prlflip" title="${esc(DATA.oddsInfo.prlMeaning)}">
+          PRL ${prl ? "ON — odds assume the lab project lands" : "OFF — odds without a research project"}
+        </button>
         <select data-filter="tier">
           <option value="">All tiers</option>
-          ${["REACH", "MATCH", "LIKELY"].map(t => `<option ${f.tier === t ? "selected" : ""}>${t}</option>`).join("")}
-        </select>
-        <select data-filter="direction">
-          <option value="">All directions</option>
-          ${directions.map(d => `<option ${f.direction === d ? "selected" : ""}>${esc(d)}</option>`).join("")}
+          ${TIERS.concat("DUAL").map(t => `<option value="${t}" ${f.tier === t ? "selected" : ""}>${tierLabel(t)}</option>`).join("")}
         </select>
         <select data-filter="country">
           <option value="">All countries</option>
           ${countries.map(c => `<option ${f.country === c ? "selected" : ""}>${esc(c)}</option>`).join("")}
         </select>
         <select data-filter="sort">
+          <option value="rank" ${sort === "rank" ? "selected" : ""}>By rank</option>
           <option value="deadline" ${sort === "deadline" ? "selected" : ""}>By deadline</option>
           <option value="tier" ${sort === "tier" ? "selected" : ""}>By tier</option>
           <option value="name" ${sort === "name" ? "selected" : ""}>By name</option>
@@ -342,24 +352,41 @@
       : status === "Offer" ? "status-offer"
       : status === "Rejected" || status === "Declined" ? "status-reject" : "";
     const city = DATA.cities.find(c => c.id === p.cityId);
+    const prl = prlOn();
+    const range = prl ? p.odds.withPRL : p.odds.noPRL;
     return `
       <div class="card prog-card ${tierClass(p.tier)}" id="prog-${p.id}">
         <div class="prog-head">
-          <h4>${esc(p.university)} <span class="country">${esc(p.country)}</span></h4>
+          <h4>${p.dualDegree ? "" : `<span class="rank-no">#${p.rank}</span> `}${esc(p.university)} <span class="country">${esc(p.country)}</span></h4>
           <button class="star-btn ${ps.star ? "on" : ""}" data-star="${p.id}" title="Star for your apply list">${ps.star ? "★" : "☆"}</button>
         </div>
         <div class="prog-meta">
-          <span class="badge ${tierClass(p.tier)}">${p.tier}</span>
-          ${p.direction.map(d => `<span class="badge neutral">${esc(d)}</span>`).join("")}
-          ${p.onlyIfOptics ? '<span class="badge warn">only if optics appeals</span>' : ""}
+          <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>
+          <span class="badge neutral">QS ${esc(p.qsRank)}</span>
+          ${p.score ? `<span class="badge neutral">fit ${p.score}/100</span>` : ""}
+          <span class="badge neutral">${esc(p.riskRole)}</span>
         </div>
         <div class="prog-programmes">${esc(p.programmes)}</div>
-        <div class="prog-fit">${esc(p.fit)}</div>
+        <div class="prog-fit">${esc(p.whyKeep)}</div>
+
+        <div class="prog-block odds-block">
+          <span class="blk-label">Admission odds ${prl ? "(with PRL)" : "(without PRL)"} · confidence: ${esc(p.odds.confidence)}${p.odds.adjusted ? ' · <span class="badge eu">adjusted ↑</span>' : ""}</span>
+          <span class="odds-range">${esc(range)}</span>
+          <span class="odds-delta">PRL impact: ${esc(p.odds.prlImpact)}</span>
+          <div style="margin-top:5px;">${esc(p.odds.verdict)}</div>
+          ${p.odds.scrutinyNote ? `<div class="tiny" style="margin-top:4px;">${esc(p.odds.scrutinyNote)}</div>` : ""}
+        </div>
 
         <div class="prog-block">
           <span class="blk-label">Hard requirements ${verdictBadge(p.hardReq.verdict)}</span>
           ${esc(p.hardReq.text)}
           <div class="tiny" style="margin-top:4px;">${esc(p.hardReq.verified)}</div>
+        </div>
+
+        <div class="prog-block">
+          <span class="blk-label">Getting home</span>
+          <b>${esc(p.connectivity.rating)}</b> · ${esc(p.connectivity.doorToDoor)} · campus: ${esc(p.connectivity.campusAccess)}
+          <div class="tiny" style="margin-top:4px;">${esc(p.connectivity.note)}</div>
         </div>
 
         <div class="prog-block">
@@ -370,6 +397,12 @@
         <div class="prog-block">
           <span class="blk-label"><span class="badge eu">${esc(DATA.strategy.euWatch.badgeLabel)}</span></span>
           ${esc(p.euImpact.text)}
+        </div>
+
+        <div class="prog-block">
+          <span class="blk-label">Strategy & next action</span>
+          ${esc(p.appStrategy)}
+          <div class="tiny" style="margin-top:4px;">Next: ${esc(p.nextAction)}</div>
         </div>
 
         <div class="prog-controls">
@@ -386,6 +419,54 @@
       </div>`;
   }
 
+  // ------------------------------------------------------------ RESERVES
+  function renderReserves() {
+    return `
+      <h2 class="section">Reserves & cuts</h2>
+      <p class="section-sub">${DATA.reserves.length} reserves stay warm in case a main-list programme falls after requirement or deadline checks. The ${DATA.cuts.length} cuts below are kept for the record, with the reason each was removed.</p>
+
+      <div class="grid cols-2">
+        ${DATA.reserves.map(r => {
+          const city = DATA.cities.find(c => c.id === r.cityId);
+          return `
+          <div class="card prog-card ${tierClass(r.tier)}">
+            <div class="prog-head"><h4>${esc(r.university)} <span class="country">${esc(r.country)}</span></h4></div>
+            <div class="prog-meta">
+              <span class="badge ${tierClass(r.tier)}">${tierLabel(r.tier)}</span>
+              <span class="badge neutral">QS ${esc(r.qsRank)}</span>
+              ${/pending|likely supplementary/i.test(r.suppRisk) ? `<span class="badge warn">${esc(r.suppRisk)}</span>` : `<span class="badge neutral">${esc(r.suppRisk)}</span>`}
+            </div>
+            <div class="prog-programmes">${esc(r.programme)}</div>
+            <div class="prog-fit">${esc(r.reason)}</div>
+            <div class="prog-block">
+              <span class="blk-label">If reconsidered</span>
+              ${esc(r.ifReconsidered)}
+            </div>
+            <div class="prog-block">
+              <span class="blk-label">Prerequisites</span>
+              ${esc(r.prereqStatus)}
+            </div>
+            <div class="tiny" style="margin:8px 0 0;">Home trip: ${esc(r.connectivity)}</div>
+            <div class="prog-links">
+              <a href="${esc(r.source)}" target="_blank" rel="noopener">Official ↗</a>
+              ${city ? `<a href="#" data-goto-city="${city.id}">City: ${esc(city.name)}</a>` : ""}
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+
+      <h3 class="sub">Cuts — removed, with reasons</h3>
+      <div class="grid cols-2">
+        ${DATA.cuts.map(c => `
+          <div class="card cut-card">
+            <h4>${esc(c.university)} <span class="country">${esc(c.country)}</span></h4>
+            <div class="prog-programmes">${esc(c.programme)} · QS ${esc(c.qsRank)}</div>
+            <div class="prog-fit">${esc(c.reason)}</div>
+            <div class="tiny">Reconsider: ${esc(c.ifReconsidered)} · <a href="${esc(c.source)}" target="_blank" rel="noopener">source ↗</a></div>
+          </div>`).join("")}
+      </div>`;
+  }
+
   // ------------------------------------------------------------ CITIES
   function renderCities() {
     return `
@@ -393,7 +474,8 @@
       <p class="section-sub">Honest profiles. Budgets are approximate monthly all-in (rent + living) for a student — June-2026 estimates; sanity-check on Numbeo before deciding.</p>
       <div class="grid cols-2">
         ${DATA.cities.map(c => {
-          const progs = DATA.programs.filter(p => p.cityId === c.id);
+          const progs = DATA.programs.filter(p => p.cityId === c.id)
+            .concat(DATA.reserves.filter(r => r.cityId === c.id).map(r => ({ university: r.university + " (reserve)" })));
           return `
           <div class="card city-card" id="city-${c.id}">
             <h4>${esc(c.name)} <span class="country">${esc(c.country)}</span></h4>
@@ -674,7 +756,11 @@
       const toggle = e.target.closest("[data-filter-toggle]");
       if (toggle) {
         state.filters = state.filters || {};
-        state.filters[toggle.dataset.filterToggle] = !state.filters[toggle.dataset.filterToggle];
+        if (toggle.dataset.filterToggle === "prlflip") {
+          state.filters.prl = !prlOn(); // explicit flip — PRL defaults to ON when unset
+        } else {
+          state.filters[toggle.dataset.filterToggle] = !state.filters[toggle.dataset.filterToggle];
+        }
         saveState(); switchTab("programs");
       }
       const goCity = e.target.closest("[data-goto-city]");
