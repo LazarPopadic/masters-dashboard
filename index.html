@@ -9,6 +9,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Master's Dashboard</title>
+  <!-- PWA: installable home-screen app (iOS reads the apple-* tags + touch icon) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#0e1013">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Masters">
   <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
@@ -68,5 +76,8 @@
   <script src="js/crypto.js?v=4"></script>
   <script src="js/data.encrypted.js?v=4"></script>
   <script src="js/app.js?v=4"></script>
+  <script>
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+  </script>
 </body>
 </html>

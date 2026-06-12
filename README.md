@@ -17,3 +17,11 @@ until the correct password is entered.
 1. Edit `data.source.js` locally.
 2. Open `tools/encrypt.html` (double-click), type the password, click **Encrypt & download**.
 3. Replace `js/data.encrypted.js` with the downloaded file, commit, push.
+4. When bumping the `?v=` asset versions in `index.html`, also bump `CACHE` in
+   `sw.js` (md-cache-v2, v3, …) and its `SHELL` URLs — otherwise installed
+   home-screen apps keep serving the old cached files.
+
+## iOS home-screen app
+The site is a PWA: open it in Safari → Share → **Add to Home Screen**. It
+installs as "Masters" with a graduation-cap icon, runs full-screen, and works
+offline (service worker `sw.js` caches the app shell).
