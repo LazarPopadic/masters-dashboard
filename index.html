@@ -17,7 +17,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Masters">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
   <!-- Hidden by default; app.js reveals it only when the password lock is on. -->
   <div id="lock" class="lock" hidden>
     <div class="lock-card">
-      <div class="lock-mark">M</div>
+      <div class="lock-mark"><svg class="mark-icon" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Graduation cap"><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3 1 9l11 6 9-4.91V17h2V9L12 3z"/></svg></div>
       <h1>Master's Dashboard</h1>
       <p class="lock-sub">Private. Enter the password to unlock.</p>
       <form id="lock-form">
@@ -43,7 +43,7 @@
   <div id="app" hidden>
     <header class="topbar">
       <div class="topbar-title">
-        <span class="topbar-mark">M</span>
+        <span class="topbar-mark"><svg class="mark-icon" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Graduation cap"><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3 1 9l11 6 9-4.91V17h2V9L12 3z"/></svg></span>
         <span>Master's Dashboard</span>
         <span class="topbar-date" id="topbar-date"></span>
       </div>
@@ -74,9 +74,9 @@
     </footer>
   </div>
 
-  <script src="js/crypto.js?v=5"></script>
-  <script src="js/data.encrypted.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/crypto.js?v=6"></script>
+  <script src="js/data.encrypted.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   </script>

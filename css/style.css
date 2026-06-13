@@ -66,6 +66,8 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--accent); font-weight: 700; font-size: 20px;
 }
 .topbar-mark { width: 28px; height: 28px; font-size: 14px; border-radius: 7px; }
+.lock-mark .mark-icon { width: 26px; height: 26px; }
+.topbar-mark .mark-icon { width: 18px; height: 18px; }
 .lock-card h1 { font-size: 20px; margin: 14px 0 4px; }
 .lock-sub { color: var(--text-2); font-size: 13px; margin-bottom: 22px; }
 .lock-card input[type="password"] {
