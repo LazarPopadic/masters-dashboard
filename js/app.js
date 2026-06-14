@@ -665,28 +665,37 @@
   }
 
   // ------------------------------------------------------------ CITIES
+  function cityCard(c) {
+    const progs = DATA.programs.filter(p => p.cityId === c.id)
+      .concat(DATA.reserves.filter(r => r.cityId === c.id).map(r => ({ university: r.university + " (reserve)" })));
+    const cid = "city-" + c.id;
+    const open = !!(state.expanded && state.expanded[cid]);
+    return `
+      <details class="uni city-uni" id="${cid}" data-uni="${cid}"${open ? " open" : ""}>
+        <summary class="uni-banner">
+          <span class="ub-name">${esc(c.name)} <span class="country">${esc(c.country)}</span>
+            <span class="ub-prog">${progs.length ? progs.map(p => esc(p.university)).join(" · ") : "No programmes here"}</span></span>
+          <span class="ub-tags"><span class="city-budget">${esc(c.budget)}</span></span>
+          <span class="ub-chev" aria-hidden="true">▸</span>
+        </summary>
+        <div class="uni-detail">
+          <div class="city-row"><b>Rent:</b> ${esc(c.rent)}</div>
+          <div class="city-row"><b>Vibe:</b> ${esc(c.vibe)}</div>
+          <div class="city-row"><b>Language:</b> ${esc(c.language)}</div>
+          <div class="city-row"><b>Weather:</b> ${esc(c.weather)}</div>
+          <div class="city-row"><b>Student life:</b> ${esc(c.studentLife)}</div>
+          <div class="city-verdict">${esc(c.verdict)}</div>
+          ${c.housing && c.housing.length ? `<div class="city-housing"><span class="blk-label">Housing risk</span>${c.housing.map(h => `<div class="city-row"><b>${esc(h.university)}:</b> ${esc(h.label)} (${esc(String(h.score1to5))}/5) · start ${esc(h.leadTime || "—")}${h.isolation ? " · " + esc(h.isolation) : ""}</div>`).join("")}</div>` : ""}
+          <div class="city-progs">Programmes here: ${progs.map(p => esc(p.university)).join(" · ") || "—"}</div>
+        </div>
+      </details>`;
+  }
   function renderCities() {
     return `
       <h2 class="section">Cities</h2>
-      <p class="section-sub">Honest profiles. Budgets are approximate monthly all-in (rent + living) for a student — June-2026 estimates; sanity-check on Numbeo before deciding.</p>
-      <div class="grid cols-2">
-        ${DATA.cities.map(c => {
-          const progs = DATA.programs.filter(p => p.cityId === c.id)
-            .concat(DATA.reserves.filter(r => r.cityId === c.id).map(r => ({ university: r.university + " (reserve)" })));
-          return `
-          <div class="card city-card" id="city-${c.id}">
-            <h4>${esc(c.name)} <span class="country">${esc(c.country)}</span></h4>
-            <div class="city-budget">${esc(c.budget)}</div>
-            <div class="city-row"><b>Rent:</b> ${esc(c.rent)}</div>
-            <div class="city-row"><b>Vibe:</b> ${esc(c.vibe)}</div>
-            <div class="city-row"><b>Language:</b> ${esc(c.language)}</div>
-            <div class="city-row"><b>Weather:</b> ${esc(c.weather)}</div>
-            <div class="city-row"><b>Student life:</b> ${esc(c.studentLife)}</div>
-            <div class="city-verdict">${esc(c.verdict)}</div>
-            ${c.housing && c.housing.length ? `<div class="city-housing"><span class="blk-label">Housing risk</span>${c.housing.map(h => `<div class="city-row"><b>${esc(h.university)}:</b> ${esc(h.label)} (${esc(String(h.score1to5))}/5) · start ${esc(h.leadTime || "—")}${h.isolation ? " · " + esc(h.isolation) : ""}</div>`).join("")}</div>` : ""}
-            <div class="city-progs">Programmes here: ${progs.map(p => esc(p.university)).join(" · ")}</div>
-          </div>`;
-        }).join("")}
+      <p class="section-sub">Honest profiles. Budgets are approximate monthly all-in (rent + living) for a student — June-2026 estimates; sanity-check on Numbeo before deciding. Tap a city to expand.</p>
+      <div class="uni-list">
+        ${DATA.cities.map(cityCard).join("")}
       </div>`;
   }
 
@@ -787,23 +796,27 @@
         </div>
       </div>
 
-      <h3 class="sub">Options</h3>
+      <h3 class="sub">Options <span class="tiny">— set a status for each</span></h3>
       <div class="grid cols-2">
         ${s.options.map(o => {
           const cur = state.summer[o.id] || o.defaultStatus;
           return `
-          <div class="card">
-            <div class="prog-head">
+          <div class="card summer-opt">
+            <div class="summer-opt-head">
               <h4>${esc(o.name)}</h4>
-              <select data-summer="${o.id}">
-                ${SUMMER_STATUSES.map(st => `<option ${st === cur ? "selected" : ""}>${st}</option>`).join("")}
-              </select>
+              <span class="badge ${summerStatusClass(cur)}">${esc(cur)}</span>
             </div>
-            <div class="muted" style="margin:6px 0;">${esc(o.role)}</div>
+            <div class="muted summer-opt-role">${esc(o.role)}</div>
             <div class="prog-block">${esc(o.note)}</div>
+            <div class="seg-group" role="group" aria-label="Set status">
+              ${SUMMER_STATUSES.map(st => `<button class="seg-btn ${summerStatusClass(st)}${st === cur ? " on" : ""}" data-summer-set="${o.id}" data-summer-status="${esc(st)}">${esc(st)}</button>`).join("")}
+            </div>
           </div>`;
         }).join("")}
       </div>`;
+  }
+  function summerStatusClass(st) {
+    return { "Probing": "warn", "Confirmed": "ok", "Chosen ✓": "ok", "Declined": "bad", "Optional": "neutral" }[st] || "neutral";
   }
 
   // ------------------------------------------------------------ PROFILE
@@ -1025,6 +1038,9 @@
       const goCity = e.target.closest("[data-goto-city]");
       if (goCity) {
         e.preventDefault();
+        state.expanded = state.expanded || {};
+        state.expanded["city-" + goCity.dataset.gotoCity] = true; // open the target city
+        saveState();
         switchTab("cities");
         const el = $("#city-" + goCity.dataset.gotoCity);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1036,6 +1052,12 @@
         saveState(); switchTab("programs");
         const el = $("#prog-" + goProg.dataset.gotoProg);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const segBtn = e.target.closest("[data-summer-set]");
+      if (segBtn) {
+        state.summer = state.summer || {};
+        state.summer[segBtn.dataset.summerSet] = segBtn.dataset.summerStatus;
+        saveState(); switchTab("summer");
       }
     });
   }

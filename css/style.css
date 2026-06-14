@@ -132,9 +132,11 @@ p.section-sub { color: var(--text-2); font-size: 13.5px; margin-bottom: 18px; }
 h3.sub { font-size: 15px; margin: 22px 0 10px; color: var(--text); }
 
 .grid { display: grid; gap: 14px; }
-.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
-.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+/* min(100%, Npx) lets columns shrink below their ideal width on narrow phones
+   instead of forcing horizontal overflow. */
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
 
 .card {
   background: var(--surface);
@@ -148,10 +150,13 @@ h3.sub { font-size: 15px; margin: 22px 0 10px; color: var(--text); }
 
 /* ---------------- Badges ---------------- */
 .badge {
-  display: inline-block; padding: 2px 8px;
+  display: inline-block; padding: 3px 9px;
   border-radius: 20px; font-size: 11.5px; font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px; line-height: 1.5; white-space: nowrap;
 }
+/* Long words / URLs must wrap inside their box, never push past it on mobile. */
+.card, .prog-block, .uni-detail, .city-row, .summer-rule, .cost-tuition,
+.award, table.data td, .stat-note, .muted { overflow-wrap: anywhere; }
 .badge.reach  { color: var(--reach);  background: rgba(229,72,77,.12);  }
 .badge.match  { color: var(--match);  background: rgba(210,153,34,.12); }
 .badge.realistic { color: var(--realistic); background: rgba(77,159,191,.12); }
@@ -219,7 +224,7 @@ h3.sub { font-size: 15px; margin: 22px 0 10px; color: var(--text); }
 }
 .star-btn.on { color: var(--match); }
 .prog-programmes { color: var(--text-2); font-size: 13px; margin: 4px 0 8px; }
-.prog-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.prog-meta { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0; }
 .prog-fit { font-size: 13.5px; color: var(--text-2); margin: 8px 0; }
 .prog-block { margin: 8px 0; padding: 9px 11px; background: var(--surface-2); border-radius: 8px; font-size: 13px; }
 .prog-block .blk-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); display: block; margin-bottom: 3px; }
@@ -441,6 +446,28 @@ table.compare .country { color: var(--text-3); font-weight: 400; font-size: 12px
 /* City housing block */
 .city-housing { margin-top: 9px; padding: 9px 11px; background: var(--surface-2); border-radius: 8px; }
 .city-housing .blk-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); display: block; margin-bottom: 3px; }
+
+/* City banner: budget chip on the right (no vertical margin in the banner row) */
+.city-uni .ub-tags .city-budget { margin: 0; white-space: nowrap; }
+
+/* Summer 2026 — option cards with a segmented status control */
+.summer-opt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.summer-opt-head h4 { margin: 0; }
+.summer-opt-role { font-size: 13px; margin: 6px 0 8px; }
+.seg-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.seg-btn {
+  background: var(--surface-2); color: var(--text-2);
+  border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 11px; font-size: 12.5px; font-family: inherit; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.seg-btn:hover { color: var(--text); border-color: var(--text-3); }
+.seg-btn.on { font-weight: 600; }
+.seg-btn.on.ok { color: var(--likely); border-color: var(--likely); background: rgba(70,167,88,.12); }
+.seg-btn.on.warn { color: var(--match); border-color: var(--match); background: rgba(210,153,34,.12); }
+.seg-btn.on.bad { color: var(--reach); border-color: var(--reach); background: rgba(229,72,77,.12); }
+.seg-btn.on.neutral { color: var(--text); border-color: var(--text-3); background: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .seg-btn { transition: none; } }
 
 @media (max-width: 640px) {
   main { padding: 18px 14px 50px; }
