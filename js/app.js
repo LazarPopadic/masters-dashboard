@@ -81,6 +81,170 @@
     return `<span class="deadline-chip ${cls}">${esc(p.deadline)} · ${approx}${rel}</span>`;
   }
 
+  // ------------------------------------------------------------ cost / score / toggle helpers
+  function euMode() { return (state.filters && state.filters.euStatus) === "eu" ? "eu" : "nonEu"; }
+  function scholarshipOn() { return !!(state.filters && state.filters.scholarship); }
+  function isNum(x) { return typeof x === "number" && isFinite(x); }
+  function eur(n) { return isNum(n) ? "€" + n.toLocaleString("en-GB") : esc(String(n == null || n === "" ? "—" : n)); }
+  function activeTotal(o) { const c = o.costs || {}; return euMode() === "eu" ? c.euTotal : c.nonEuTotal; }
+  function activeTuition(o) { const c = o.costs || {}; return euMode() === "eu" ? c.euTuition : c.nonEuTuition; }
+  function admissionMid(p) { const m = p.oddsMid || {}; return prlOn() ? m.withPRL : m.noPRL; }
+  function totalSortKey(o) { const t = activeTotal(o); return isNum(t) ? t : Infinity; } // "Verify"/"N/A" sort last
+
+  // Conservative: only return a number when the workbook text states a clear per-year EUR award.
+  function parseAnnualEur(text) {
+    const s = String(text || "");
+    let m = s.match(/EUR\s*([\d.]+)\s*k\s*(?:\/|per\s*)?\s*(?:year|yr|annum|p\.?a\.?)/i);
+    if (m) return Math.round(parseFloat(m[1]) * 1000);
+    m = s.match(/EUR\s*([\d,]+)\s*(?:\/|per\s*)?\s*(?:year|yr|annum|p\.?a\.?)/i);
+    if (m) return Math.round(parseFloat(m[1].replace(/,/g, "")));
+    return null;
+  }
+  // Net yearly cost after the best clearly-quantified award (never invents; null when no clean figure).
+  function scholarshipNet(o) {
+    if (!scholarshipOn()) return null;
+    const t = activeTotal(o);
+    if (!isNum(t)) return null;
+    let best = null;
+    for (const a of ((o.scholarship && o.scholarship.awards) || [])) {
+      const v = parseAnnualEur(a.amount);
+      if (isNum(v)) best = best === null ? v : Math.max(best, v);
+    }
+    const mv = parseAnnualEur(o.scholarship && o.scholarship.maxFunding);
+    if (isNum(mv)) best = best === null ? mv : Math.max(best, mv);
+    return isNum(best) ? Math.max(0, t - best) : null;
+  }
+
+  // 1–5 score bars (higher = better; housingEase already inverted from housing risk).
+  const SCORE_DEFS = [
+    ["fit", "Fit"], ["prestige", "Prestige (QS)"], ["career", "Career options"],
+    ["connectivity", "Getting home"], ["prereqSafety", "Prereq safety"],
+    ["housingEase", "Housing ease"], ["scholarshipUpside", "Funding upside"]
+  ];
+  function scoresChart(o) {
+    const sc = o.scores;
+    if (!sc) return "";
+    const rows = SCORE_DEFS.filter(([k]) => isNum(sc[k])).map(([k, label]) => {
+      const v = sc[k], pct = Math.round(v / 5 * 100);
+      return `<div class="scorebar"><span class="sb-label">${label}</span>
+        <span class="sb-track"><i data-w="${pct}"></i></span><span class="sb-val">${v}</span></div>`;
+    }).join("");
+    return `<div class="prog-block"><span class="blk-label">Scores (1–5, higher is better)</span>
+      <div class="scorebars">${rows}</div></div>`;
+  }
+
+  // Stacked tuition-vs-living bar; only when the active total is a real number.
+  function costBar(o) {
+    const c = o.costs || {}, total = activeTotal(o);
+    if (!isNum(total) || total <= 0) return "";
+    const living = isNum(c.annualLiving) ? Math.min(c.annualLiving, total) : 0;
+    const tp = Math.round((total - living) / total * 100), lp = 100 - tp;
+    return `<div class="cost-bar"><i class="cb-tuition" data-w="${tp}"></i><i class="cb-living" data-w="${lp}"></i></div>
+      <div class="cost-bar-legend"><span><b class="dot tuition"></b>Tuition ${tp}%</span><span><b class="dot living"></b>Living ${lp}%</span></div>`;
+  }
+
+  function costDetail(o) {
+    const c = o.costs;
+    if (!c || (c.euTotal === undefined && c.nonEuTotal === undefined)) return "";
+    const net = scholarshipNet(o), eu = euMode() === "eu";
+    return `<div class="prog-block cost-detail">
+      <span class="blk-label">Yearly cost — ${eu ? "EU/EEA status" : "non-EU status"}${c.confidence ? ` · <span class="conf">${esc(c.confidence)}</span>` : ""}</span>
+      <div class="cost-headline"><span class="metric-num">${eur(activeTotal(o))}</span><span class="ml">/yr</span>
+        ${net !== null ? `<span class="net">≈ ${eur(net)}/yr with best realistic award <span class="tiny">(conditional — verify)</span></span>` : ""}</div>
+      ${costBar(o)}
+      <div class="cost-grid">
+        <span>Rent</span><span>${isNum(c.rentMo) ? eur(c.rentMo) + "/mo" : esc(c.rentMo || "—")}</span>
+        <span>Other living</span><span>${isNum(c.otherMo) ? eur(c.otherMo) + "/mo" : esc(c.otherMo || "—")}</span>
+        <span>Annual living</span><span>${eur(c.annualLiving)}</span>
+        <span>EU total</span><span>${eur(c.euTotal)}</span>
+        <span>Non-EU total</span><span>${eur(c.nonEuTotal)}</span>
+      </div>
+      <div class="cost-tuition"><b>${eu ? "EU/EEA" : "Non-EU"} tuition:</b> ${esc(activeTuition(o) || "—")}</div>
+      ${c.notes ? `<div class="tiny" style="margin-top:6px;">${esc(c.notes)}</div>` : ""}
+      <div class="prog-links" style="margin-top:6px;">
+        ${/^https?:/.test(c.feeSource || "") ? `<a href="${esc(c.feeSource)}" target="_blank" rel="noopener">Fee source ↗</a>` : ""}
+        ${/^https?:/.test(c.livingSource || "") ? `<a href="${esc(c.livingSource)}" target="_blank" rel="noopener">Living source ↗</a>` : ""}
+      </div>
+    </div>`;
+  }
+
+  function scholarshipDetail(o) {
+    const s = o.scholarship;
+    if (!s || !s.bestRealistic) return "";
+    const awards = s.awards || [];
+    return `<div class="prog-block">
+      <span class="blk-label">Scholarships — upside ${esc(String(s.upside1to5 ?? "?"))}/5 · difficulty ${esc(String(s.difficulty1to5 ?? "?"))}/5${s.confidence ? ` · ${esc(s.confidence)}` : ""}</span>
+      <div><b>Best realistic:</b> ${esc(s.bestRealistic)}</div>
+      ${s.bestStretch ? `<div><b>Stretch:</b> ${esc(s.bestStretch)}</div>` : ""}
+      <div class="tiny" style="margin-top:4px;">${esc(s.realismNote || "")}${s.netCost ? " " + esc(s.netCost) : ""}</div>
+      ${awards.length ? `<details class="awards"><summary class="tiny">${awards.length} award${awards.length > 1 ? "s" : ""} researched</summary>
+        ${awards.map(a => `<div class="award"><b>${esc(a.name)}</b> — ${esc(a.amount)}
+          <div class="tiny">${esc(a.oddsBand)} odds · difficulty ${esc(String(a.difficulty))}/5 · ${esc(a.eligibility)}</div>
+          ${/^https?:/.test(a.url || "") ? `<a class="tiny" href="${esc(a.url)}" target="_blank" rel="noopener">apply ↗</a>` : ""}</div>`).join("")}
+      </details>` : ""}
+    </div>`;
+  }
+
+  function housingDetail(o) {
+    const h = o.housing;
+    if (!h || !h.label) return "";
+    return `<div class="prog-block">
+      <span class="blk-label">Housing — ${esc(h.label)} (risk ${esc(String(h.score1to5))}/5)</span>
+      ${esc(h.evidence || "")}
+      <div class="tiny" style="margin-top:4px;">Start searching: ${esc(h.leadTime || "—")}${h.isolation ? " · " + esc(h.isolation) : ""}</div>
+    </div>`;
+  }
+
+  // Shared EU/non-EU + PRL + scholarship toggles (used on Programmes and Compare).
+  function toggleBar() {
+    const prl = prlOn(), eu = euMode() === "eu", sch = scholarshipOn();
+    return `<div class="toggle-row">
+      <button class="toggle-btn ${eu ? "on" : ""}" data-filter-toggle="euStatus" title="Switch tuition between EU/EEA and non-EU rates">${eu ? "EU/EEA fees" : "Non-EU fees"}</button>
+      <button class="toggle-btn prl-toggle ${prl ? "on" : ""}" data-filter-toggle="prlflip" title="${esc(DATA.oddsInfo.prlMeaning)}">PRL ${prl ? "ON · lab project" : "OFF · no lab"}</button>
+      <button class="toggle-btn ${sch ? "on" : ""}" data-filter-toggle="scholarship" title="Show net cost after the best clearly-quantified award, where one exists">Scholarship ${sch ? "on" : "off"}</button>
+    </div>`;
+  }
+
+  // ------------------------------------------------------------ animation (reduced-motion aware)
+  function fmtNum(n) { return Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toFixed(1); }
+  function prefersReduce() { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  function animateNum(el, to, dur) {
+    const t0 = performance.now();
+    (function step(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 0.5 - 0.5 * Math.cos(Math.PI * k); // ease in-out
+      el.textContent = fmtNum(to * e);
+      if (k < 1) requestAnimationFrame(step); else el.textContent = fmtNum(to);
+    })(t0);
+  }
+  function animateBars(scope, reduce) {
+    $$(".scorebar i[data-w], .cost-bar i[data-w]", scope).forEach(i => {
+      const w = i.dataset.w + "%";
+      if (reduce) { i.style.width = w; return; }
+      i.style.width = "0%";
+      requestAnimationFrame(() => requestAnimationFrame(() => { i.style.width = w; }));
+    });
+  }
+  // Post-render: count-ups, bar growth for open cards, and details open-state persistence.
+  function enhance(root) {
+    const reduce = prefersReduce();
+    $$("[data-countup]", root).forEach(el => {
+      const target = parseFloat(el.dataset.countup);
+      if (!isFinite(target)) return;
+      if (reduce) { el.textContent = fmtNum(target); return; }
+      animateNum(el, target, 650);
+    });
+    $$("details.uni[open]", root).forEach(d => animateBars(d, reduce));
+    $$("details.uni", root).forEach(d => {
+      d.addEventListener("toggle", () => {
+        state.expanded = state.expanded || {};
+        if (d.open) { state.expanded[d.dataset.uni] = true; animateBars(d, reduce); }
+        else delete state.expanded[d.dataset.uni];
+        saveState();
+      });
+    });
+  }
+
   // ------------------------------------------------------------ unlock flow
   async function tryRememberedKey() {
     const raw = localStorage.getItem(KEY_KEY);
@@ -191,9 +355,10 @@
     const render = {
       overview: renderOverview, programs: renderPrograms, reserves: renderReserves, cities: renderCities,
       timeline: renderTimeline, checklist: renderChecklist, summer: renderSummer,
-      profile: renderProfile, strategy: renderStrategy
+      profile: renderProfile, strategy: renderStrategy, compare: renderCompare
     }[tab] || renderOverview;
     $("#main").innerHTML = render();
+    enhance($("#main"));
     window.scrollTo(0, sameTab ? keepY : 0);
   }
 
@@ -311,16 +476,15 @@
     if (sort === "deadline") list.sort((a, b) => (a.deadlineSort || "9999").localeCompare(b.deadlineSort || "9999"));
     if (sort === "tier") { const o = { "DUAL": 0, "REACH": 1, "OPTIMISTIC MATCH": 2, "REALISTIC MATCH": 3, "LIKELY": 4 }; list.sort((a, b) => o[a.tier] - o[b.tier]); }
     if (sort === "name") list.sort((a, b) => a.university.localeCompare(b.university));
+    if (sort === "total") list.sort((a, b) => totalSortKey(a) - totalSortKey(b));
+    if (sort === "odds") list.sort((a, b) => (isNum(admissionMid(b)) ? admissionMid(b) : -1) - (isNum(admissionMid(a)) ? admissionMid(a) : -1));
 
-    const prl = prlOn();
     return `
       <h2 class="section">Programmes — the ranked shortlist</h2>
       <p class="section-sub">${esc(DATA.oddsInfo.basis)} ${esc(DATA.oddsInfo.provenance)}</p>
 
+      ${toggleBar()}
       <div class="prog-filters">
-        <button class="toggle-btn prl-toggle ${prl ? "on" : ""}" data-filter-toggle="prlflip" title="${esc(DATA.oddsInfo.prlMeaning)}">
-          PRL ${prl ? "ON — odds assume the lab project lands" : "OFF — odds without a research project"}
-        </button>
         <select data-filter="tier">
           <option value="">All tiers</option>
           ${TIERS.concat("DUAL").map(t => `<option value="${t}" ${f.tier === t ? "selected" : ""}>${tierLabel(t)}</option>`).join("")}
@@ -331,6 +495,8 @@
         </select>
         <select data-filter="sort">
           <option value="rank" ${sort === "rank" ? "selected" : ""}>By rank</option>
+          <option value="total" ${sort === "total" ? "selected" : ""}>By yearly total</option>
+          <option value="odds" ${sort === "odds" ? "selected" : ""}>By admission chance</option>
           <option value="deadline" ${sort === "deadline" ? "selected" : ""}>By deadline</option>
           <option value="tier" ${sort === "tier" ? "selected" : ""}>By tier</option>
           <option value="name" ${sort === "name" ? "selected" : ""}>By name</option>
@@ -339,7 +505,8 @@
         <button class="toggle-btn ${f.mine ? "on" : ""}" data-filter-toggle="mine">★ My list</button>
       </div>
 
-      <div class="grid cols-2">
+      <p class="tiny" style="margin:-6px 0 12px;">Tap a row to expand full costs, scholarships, housing and scores. Costs follow the EU/non-EU toggle; chances follow PRL.</p>
+      <div class="uni-list">
         ${list.map(progCard).join("") || '<div class="card muted">No programmes match these filters.</div>'}
       </div>
     `;
@@ -354,105 +521,135 @@
     const city = DATA.cities.find(c => c.id === p.cityId);
     const prl = prlOn();
     const range = prl ? p.odds.withPRL : p.odds.noPRL;
+    const mid = admissionMid(p);
+    const open = !!(state.expanded && state.expanded[p.id]);
     return `
-      <div class="card prog-card ${tierClass(p.tier)}" id="prog-${p.id}">
-        <div class="prog-head">
-          <h4>${p.dualDegree ? "" : `<span class="rank-no">#${p.rank}</span> `}${esc(p.university)} <span class="country">${esc(p.country)}</span></h4>
+      <details class="uni prog-card ${tierClass(p.tier)}" id="prog-${p.id}" data-uni="${p.id}"${open ? " open" : ""}>
+        <summary class="uni-banner">
+          <span class="ub-rank">${p.dualDegree ? '<span class="badge dual">DUAL</span>' : "#" + p.rank}</span>
+          <span class="ub-name">${esc(p.university)} <span class="country">${esc(p.country)}</span>
+            <span class="ub-prog">${esc(p.programmes)}</span></span>
+          <span class="ub-tags">
+            <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>
+            ${isNum(mid) ? `<span class="ub-metric chance"><span class="metric-num" data-countup="${mid}">0</span><span class="mu">%</span><span class="ml">chance</span></span>` : ""}
+            <span class="ub-metric"><span class="metric-num">${eur(activeTotal(p))}</span><span class="ml">/yr ${euMode() === "eu" ? "EU" : "non-EU"}</span></span>
+          </span>
+          <span class="ub-chev" aria-hidden="true">▸</span>
+        </summary>
+        <div class="uni-detail">
           <button class="star-btn ${ps.star ? "on" : ""}" data-star="${p.id}" title="Star for your apply list">${ps.star ? "★" : "☆"}</button>
-        </div>
-        <div class="prog-meta">
-          <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>
-          <span class="badge neutral">QS ${esc(p.qsRank)}</span>
-          ${p.score ? `<span class="badge neutral">fit ${p.score}/100</span>` : ""}
-          <span class="badge neutral">${esc(p.riskRole)}</span>
-        </div>
-        <div class="prog-programmes">${esc(p.programmes)}</div>
-        <div class="prog-fit">${esc(p.whyKeep)}</div>
+          <div class="prog-meta">
+            <span class="badge neutral">QS ${esc(p.qsRank)}</span>
+            ${p.score ? `<span class="badge neutral">fit ${p.score}/100</span>` : ""}
+            <span class="badge neutral">${esc(p.riskRole)}</span>
+          </div>
+          <div class="prog-fit">${esc(p.summaryText || p.whyKeep)}</div>
+          ${p.tradeoffs ? `<div class="tiny" style="margin-bottom:6px;">Trade-offs: ${esc(p.tradeoffs)}</div>` : ""}
 
-        <div class="prog-block odds-block">
-          <span class="blk-label">Admission odds ${prl ? "(with PRL)" : "(without PRL)"} · confidence: ${esc(p.odds.confidence)}${p.odds.adjusted ? ' · <span class="badge eu">adjusted ↑</span>' : ""}</span>
-          <span class="odds-range">${esc(range)}</span>
-          <span class="odds-delta">PRL impact: ${esc(p.odds.prlImpact)}</span>
-          <div style="margin-top:5px;">${esc(p.odds.verdict)}</div>
-          ${p.odds.scrutinyNote ? `<div class="tiny" style="margin-top:4px;">${esc(p.odds.scrutinyNote)}</div>` : ""}
-        </div>
+          <div class="prog-block odds-block">
+            <span class="blk-label">Admission odds ${prl ? "(with PRL)" : "(without PRL)"} · confidence: ${esc(p.odds.confidence)}${p.odds.adjusted ? ' · <span class="badge eu">adjusted ↑</span>' : ""}</span>
+            <span class="odds-range">${esc(range)}</span>
+            <span class="odds-delta">PRL impact: ${esc(p.odds.prlImpact)}</span>
+            <div style="margin-top:5px;">${esc(p.odds.verdict)}</div>
+            ${p.odds.scrutinyNote ? `<div class="tiny" style="margin-top:4px;">${esc(p.odds.scrutinyNote)}</div>` : ""}
+          </div>
 
-        <div class="prog-block">
-          <span class="blk-label">Hard requirements ${verdictBadge(p.hardReq.verdict)}</span>
-          ${esc(p.hardReq.text)}
-          <div class="tiny" style="margin-top:4px;">${esc(p.hardReq.verified)}</div>
-        </div>
+          ${scoresChart(p)}
+          ${costDetail(p)}
+          ${scholarshipDetail(p)}
+          ${housingDetail(p)}
 
-        <div class="prog-block">
-          <span class="blk-label">Getting home</span>
-          <b>${esc(p.connectivity.rating)}</b> · ${esc(p.connectivity.doorToDoor)} · campus: ${esc(p.connectivity.campusAccess)}
-          <div class="tiny" style="margin-top:4px;">${esc(p.connectivity.note)}</div>
-        </div>
+          <div class="prog-block">
+            <span class="blk-label">Hard requirements ${verdictBadge(p.hardReq.verdict)}</span>
+            ${esc(p.hardReq.text)}
+            <div class="tiny" style="margin-top:4px;">${esc(p.hardReq.verified)}</div>
+          </div>
+          <div class="prog-block">
+            <span class="blk-label">Getting home</span>
+            <b>${esc(p.connectivity.rating)}</b> · ${esc(p.connectivity.doorToDoor)} · campus: ${esc(p.connectivity.campusAccess)}
+            <div class="tiny" style="margin-top:4px;">${esc(p.connectivity.note)}</div>
+          </div>
+          <div class="prog-block">
+            <span class="blk-label"><span class="badge eu">${esc(DATA.strategy.euWatch.badgeLabel)}</span></span>
+            ${esc(p.euImpact.text)}
+          </div>
+          <div class="prog-block">
+            <span class="blk-label">Strategy & next action</span>
+            ${esc(p.appStrategy)}
+            <div class="tiny" style="margin-top:4px;">Next: ${esc(p.nextAction)}</div>
+          </div>
 
-        <div class="prog-block">
-          <span class="blk-label">Cost (non-EU)</span>
-          <b>${esc(p.feeNonEU)}</b>${p.feeNote ? ` — ${esc(p.feeNote)}` : ""}
+          <div class="prog-controls">
+            ${deadlineChip(p)}
+            <select data-status="${p.id}" class="${statusCls}">
+              ${STATUSES.map(s => `<option ${s === status ? "selected" : ""}>${s}</option>`).join("")}
+            </select>
+          </div>
+          <textarea class="prog-notes" data-notes="${p.id}" placeholder="Your notes…">${esc(ps.notes || "")}</textarea>
+          <div class="prog-links">
+            ${p.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}
+            ${city ? `<a href="#" data-goto-city="${city.id}">City: ${esc(city.name)}</a>` : ""}
+          </div>
         </div>
-
-        <div class="prog-block">
-          <span class="blk-label"><span class="badge eu">${esc(DATA.strategy.euWatch.badgeLabel)}</span></span>
-          ${esc(p.euImpact.text)}
-        </div>
-
-        <div class="prog-block">
-          <span class="blk-label">Strategy & next action</span>
-          ${esc(p.appStrategy)}
-          <div class="tiny" style="margin-top:4px;">Next: ${esc(p.nextAction)}</div>
-        </div>
-
-        <div class="prog-controls">
-          ${deadlineChip(p)}
-          <select data-status="${p.id}" class="${statusCls}">
-            ${STATUSES.map(s => `<option ${s === status ? "selected" : ""}>${s}</option>`).join("")}
-          </select>
-        </div>
-        <textarea class="prog-notes" data-notes="${p.id}" placeholder="Your notes…">${esc(ps.notes || "")}</textarea>
-        <div class="prog-links">
-          ${p.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("")}
-          ${city ? `<a href="#" data-goto-city="${city.id}">City: ${esc(city.name)}</a>` : ""}
-        </div>
-      </div>`;
+      </details>`;
   }
 
   // ------------------------------------------------------------ RESERVES
+  function reserveId(r) {
+    return "rsv-" + (r.university + "-" + (r.programme || "")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+  function reserveCard(r) {
+    const city = DATA.cities.find(c => c.id === r.cityId);
+    const rid = reserveId(r);
+    const open = !!(state.expanded && state.expanded[rid]);
+    return `
+      <details class="uni prog-card ${tierClass(r.tier)}" id="${rid}" data-uni="${rid}"${open ? " open" : ""}>
+        <summary class="uni-banner">
+          <span class="ub-rank"><span class="badge neutral">RES</span></span>
+          <span class="ub-name">${esc(r.university)} <span class="country">${esc(r.country)}</span>
+            <span class="ub-prog">${esc(r.programme)}</span></span>
+          <span class="ub-tags">
+            <span class="badge ${tierClass(r.tier)}">${tierLabel(r.tier)}</span>
+            ${/pending|likely supplementary/i.test(r.suppRisk || "") ? `<span class="badge warn">${esc(r.suppRisk)}</span>` : ""}
+            <span class="ub-metric"><span class="metric-num">${eur(activeTotal(r))}</span><span class="ml">/yr ${euMode() === "eu" ? "EU" : "non-EU"}</span></span>
+          </span>
+          <span class="ub-chev" aria-hidden="true">▸</span>
+        </summary>
+        <div class="uni-detail">
+          <div class="prog-meta">
+            <span class="badge neutral">QS ${esc(r.qsRank)}</span>
+            <span class="badge neutral">${esc(r.suppRisk)}</span>
+          </div>
+          <div class="prog-fit">${esc(r.summaryText || r.reason)}</div>
+          ${r.tradeoffs ? `<div class="tiny" style="margin-bottom:6px;">Trade-offs: ${esc(r.tradeoffs)}</div>` : ""}
+          ${scoresChart(r)}
+          ${costDetail(r)}
+          ${scholarshipDetail(r)}
+          ${housingDetail(r)}
+          <div class="prog-block">
+            <span class="blk-label">If reconsidered</span>
+            ${esc(r.ifReconsidered)}
+          </div>
+          <div class="prog-block">
+            <span class="blk-label">Prerequisites</span>
+            ${esc(r.prereqStatus)}
+          </div>
+          <div class="tiny" style="margin:8px 0 0;">Home trip: ${esc(r.connectivity)}</div>
+          <div class="prog-links">
+            <a href="${esc(r.source)}" target="_blank" rel="noopener">Official ↗</a>
+            ${city ? `<a href="#" data-goto-city="${city.id}">City: ${esc(city.name)}</a>` : ""}
+          </div>
+        </div>
+      </details>`;
+  }
   function renderReserves() {
     return `
       <h2 class="section">Reserves & cuts</h2>
       <p class="section-sub">${DATA.reserves.length} reserves stay warm in case a main-list programme falls after requirement or deadline checks. The ${DATA.cuts.length} cuts below are kept for the record, with the reason each was removed.</p>
 
-      <div class="grid cols-2">
-        ${DATA.reserves.map(r => {
-          const city = DATA.cities.find(c => c.id === r.cityId);
-          return `
-          <div class="card prog-card ${tierClass(r.tier)}">
-            <div class="prog-head"><h4>${esc(r.university)} <span class="country">${esc(r.country)}</span></h4></div>
-            <div class="prog-meta">
-              <span class="badge ${tierClass(r.tier)}">${tierLabel(r.tier)}</span>
-              <span class="badge neutral">QS ${esc(r.qsRank)}</span>
-              ${/pending|likely supplementary/i.test(r.suppRisk) ? `<span class="badge warn">${esc(r.suppRisk)}</span>` : `<span class="badge neutral">${esc(r.suppRisk)}</span>`}
-            </div>
-            <div class="prog-programmes">${esc(r.programme)}</div>
-            <div class="prog-fit">${esc(r.reason)}</div>
-            <div class="prog-block">
-              <span class="blk-label">If reconsidered</span>
-              ${esc(r.ifReconsidered)}
-            </div>
-            <div class="prog-block">
-              <span class="blk-label">Prerequisites</span>
-              ${esc(r.prereqStatus)}
-            </div>
-            <div class="tiny" style="margin:8px 0 0;">Home trip: ${esc(r.connectivity)}</div>
-            <div class="prog-links">
-              <a href="${esc(r.source)}" target="_blank" rel="noopener">Official ↗</a>
-              ${city ? `<a href="#" data-goto-city="${city.id}">City: ${esc(city.name)}</a>` : ""}
-            </div>
-          </div>`;
-        }).join("")}
+      ${toggleBar()}
+      <div class="uni-list">
+        ${DATA.reserves.map(reserveCard).join("")}
       </div>
 
       <h3 class="sub">Cuts — removed, with reasons</h3>
@@ -486,6 +683,7 @@
             <div class="city-row"><b>Weather:</b> ${esc(c.weather)}</div>
             <div class="city-row"><b>Student life:</b> ${esc(c.studentLife)}</div>
             <div class="city-verdict">${esc(c.verdict)}</div>
+            ${c.housing && c.housing.length ? `<div class="city-housing"><span class="blk-label">Housing risk</span>${c.housing.map(h => `<div class="city-row"><b>${esc(h.university)}:</b> ${esc(h.label)} (${esc(String(h.score1to5))}/5) · start ${esc(h.leadTime || "—")}${h.isolation ? " · " + esc(h.isolation) : ""}</div>`).join("")}</div>` : ""}
             <div class="city-progs">Programmes here: ${progs.map(p => esc(p.university)).join(" · ")}</div>
           </div>`;
         }).join("")}
@@ -708,8 +906,70 @@
       </div>
       <div class="card" style="margin-top:14px;"><h4>Beyond fees</h4><div class="muted">${esc(eu.otherBenefits)}</div></div>
 
+      ${DATA.transition && DATA.transition.length ? `
+      <h3 class="sub">Worker-transition — by round</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">Croatia is the benchmark; the final treaty formula isn't public, so this uses Round 1 / 2 / 3, not fixed years. Tuition status is separate from worker-market access.</p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Country</th><th>Risk</th><th>Round 1 / 2 / 3</th><th>Fee-status implication</th></tr></thead>
+          <tbody>${DATA.transition.map(t => `<tr>
+            <td style="white-space:nowrap;"><b>${esc(t.country)}</b><div class="tiny">${esc(t.status)}</div></td>
+            <td>${esc(t.risk)}</td>
+            <td>${esc(t.round1)}<br>${esc(t.round2)}<br>${esc(t.round3)}</td>
+            <td>${esc(t.feeImplication)}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>` : ""}
+
+      ${DATA.feeStatus && DATA.feeStatus.length ? `
+      <h3 class="sub">Fee-status questions</h3>
+      <div class="grid cols-2">
+        ${DATA.feeStatus.map(q => `<div class="card"><h4>${esc(q.question)}</h4><div class="muted">${esc(q.answer)}</div>
+          <div class="prog-block" style="margin-top:8px;">${esc(q.meaning)}</div>
+          <div class="tiny" style="margin-top:6px;">Confidence: ${esc(q.confidence)}</div></div>`).join("")}
+      </div>` : ""}
+
       <h3 class="sub">Caveats</h3>
       <div class="card"><ul class="clean">${st.caveats.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>`;
+  }
+
+  // ------------------------------------------------------------ COMPARE
+  function renderCompare() {
+    const sort = (state.filters && state.filters.cmpSort) || "total";
+    let list = DATA.programs.slice();
+    if (sort === "total") list.sort((a, b) => totalSortKey(a) - totalSortKey(b));
+    else if (sort === "admission") list.sort((a, b) => (isNum(admissionMid(b)) ? admissionMid(b) : -1) - (isNum(admissionMid(a)) ? admissionMid(a) : -1));
+    else if (sort === "fit") list.sort((a, b) => ((b.scores && b.scores.fit) || 0) - ((a.scores && a.scores.fit) || 0));
+    else list.sort((a, b) => a.rank - b.rank);
+    const eu = euMode() === "eu";
+    return `
+      <h2 class="section">Compare</h2>
+      <p class="section-sub">All ranked programmes side by side. Costs follow the EU/non-EU toggle; chances follow PRL. “Verify”/“N/A” totals sort last and are never guessed. Tap a row to open its full card.</p>
+      ${toggleBar()}
+      <div class="prog-filters">
+        <select data-filter="cmpSort">
+          <option value="total" ${sort === "total" ? "selected" : ""}>Sort: yearly total</option>
+          <option value="admission" ${sort === "admission" ? "selected" : ""}>Sort: admission chance</option>
+          <option value="fit" ${sort === "fit" ? "selected" : ""}>Sort: fit score</option>
+          <option value="rank" ${sort === "rank" ? "selected" : ""}>Sort: rank</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="data compare">
+          <thead><tr><th>#</th><th>University</th><th>Tier</th><th>Chance</th><th>€/yr ${eu ? "EU" : "non-EU"}</th><th>Fit</th></tr></thead>
+          <tbody>${list.map(p => {
+            const mid = admissionMid(p);
+            return `<tr data-goto-prog="${p.id}">
+              <td>${p.dualDegree ? "·" : p.rank}</td>
+              <td><b>${esc(p.university)}</b><span class="country"> ${esc(p.country)}</span></td>
+              <td><span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span></td>
+              <td class="num">${isNum(mid) ? `<span class="metric-num" data-countup="${mid}">0</span>%` : "—"}</td>
+              <td class="num">${eur(activeTotal(p))}</td>
+              <td class="num">${p.scores ? p.scores.fit : "—"}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table>
+      </div>`;
   }
 
   // ------------------------------------------------------------ event wiring
@@ -728,7 +988,7 @@
       if (t.dataset.filter) {
         state.filters = state.filters || {};
         state.filters[t.dataset.filter] = t.value;
-        saveState(); switchTab("programs");
+        saveState(); switchTab(state.tab);
       }
     });
 
@@ -756,18 +1016,25 @@
       const toggle = e.target.closest("[data-filter-toggle]");
       if (toggle) {
         state.filters = state.filters || {};
-        if (toggle.dataset.filterToggle === "prlflip") {
-          state.filters.prl = !prlOn(); // explicit flip — PRL defaults to ON when unset
-        } else {
-          state.filters[toggle.dataset.filterToggle] = !state.filters[toggle.dataset.filterToggle];
-        }
-        saveState(); switchTab("programs");
+        const k = toggle.dataset.filterToggle;
+        if (k === "prlflip") state.filters.prl = !prlOn(); // explicit flip — PRL defaults to ON when unset
+        else if (k === "euStatus") state.filters.euStatus = euMode() === "eu" ? "nonEu" : "eu";
+        else state.filters[k] = !state.filters[k];
+        saveState(); switchTab(state.tab);
       }
       const goCity = e.target.closest("[data-goto-city]");
       if (goCity) {
         e.preventDefault();
         switchTab("cities");
         const el = $("#city-" + goCity.dataset.gotoCity);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const goProg = e.target.closest("[data-goto-prog]");
+      if (goProg) {
+        state.expanded = state.expanded || {};
+        state.expanded[goProg.dataset.gotoProg] = true;
+        saveState(); switchTab("programs");
+        const el = $("#prog-" + goProg.dataset.gotoProg);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });

@@ -354,10 +354,114 @@ ul.clean li::before {
 .kv dt { color: var(--text-3); }
 .kv dd { color: var(--text); }
 
+/* ---------------- University accordion (Programmes / Reserves) ---------------- */
+.uni-list { display: flex; flex-direction: column; gap: 10px; }
+.uni {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.uni.reach { border-left-color: var(--reach); }
+.uni.match { border-left-color: var(--match); }
+.uni.realistic { border-left-color: var(--realistic); }
+.uni.likely { border-left-color: var(--likely); }
+.uni.dual { border-left-color: var(--accent); }
+
+.uni-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; cursor: pointer; list-style: none; user-select: none;
+}
+.uni-banner::-webkit-details-marker { display: none; }
+.uni-banner:hover { background: var(--surface-2); }
+.ub-rank { flex: 0 0 auto; min-width: 30px; color: var(--text-3); font-weight: 600; font-size: 13px; }
+.ub-name { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 14.5px; }
+.ub-name .country { color: var(--text-3); font-weight: 400; font-size: 12.5px; }
+.ub-prog { display: block; color: var(--text-2); font-weight: 400; font-size: 12.5px; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ub-tags { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.ub-metric { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+.ub-metric .metric-num { font-family: var(--mono); font-weight: 700; font-size: 16px; color: var(--text); }
+.ub-metric.chance .metric-num { color: var(--accent); }
+.ub-metric .mu { font-size: 12px; color: var(--text-2); }
+.ub-metric .ml { font-size: 11px; color: var(--text-3); }
+.ub-chev { flex: 0 0 auto; color: var(--text-3); transition: transform .2s; }
+.uni[open] .ub-chev { transform: rotate(90deg); }
+
+.uni-detail { padding: 6px 16px 16px; position: relative; animation: uni-reveal .22s ease; }
+@keyframes uni-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.uni-detail .star-btn { position: absolute; top: 8px; right: 12px; z-index: 1; }
+.uni-detail .prog-meta { margin-top: 2px; }
+
+/* Score bars */
+.scorebars { display: grid; gap: 6px; margin-top: 4px; }
+.scorebar { display: grid; grid-template-columns: 96px 1fr 18px; align-items: center; gap: 8px; }
+.sb-label { font-size: 12px; color: var(--text-2); }
+.sb-track { height: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.sb-track i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 6px; transition: width .8s cubic-bezier(.2,.7,.2,1); }
+.sb-val { font-family: var(--mono); font-size: 12px; color: var(--text-2); text-align: right; }
+
+/* Cost stacked bar */
+.cost-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); margin: 6px 0 4px; }
+.cost-bar i { display: block; height: 100%; width: 0; transition: width .8s cubic-bezier(.2,.7,.2,1); }
+.cb-tuition { background: var(--match); }
+.cb-living { background: var(--realistic); }
+.cost-bar-legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--text-3); }
+.cost-bar-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.cost-bar-legend .dot.tuition { background: var(--match); }
+.cost-bar-legend .dot.living { background: var(--realistic); }
+
+.cost-detail .cost-headline { margin: 2px 0 4px; }
+.cost-detail .cost-headline .metric-num { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+.cost-detail .cost-headline .ml { font-size: 12px; color: var(--text-3); margin-left: 2px; }
+.cost-detail .net { display: inline-block; margin-left: 10px; font-size: 12.5px; color: var(--likely); }
+.cost-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 12.5px; margin: 6px 0; }
+.cost-grid span:nth-child(odd) { color: var(--text-3); }
+.cost-grid span:nth-child(even) { font-family: var(--mono); color: var(--text); text-align: right; }
+.cost-tuition { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+.conf { color: var(--text-2); }
+
+/* Toggle row (EU/non-EU · PRL · scholarship) */
+.toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+
+/* Scholarship award sub-list */
+.awards { margin-top: 6px; }
+.awards > summary { cursor: pointer; color: var(--accent); }
+.award { padding: 6px 0; border-top: 1px solid var(--border); margin-top: 6px; }
+.award b { font-size: 12.5px; }
+
+/* Compare table */
+table.compare td.num { font-family: var(--mono); white-space: nowrap; }
+table.compare tbody tr { cursor: pointer; }
+table.compare tbody tr:hover { background: var(--surface-2); }
+table.compare .metric-num { font-family: var(--mono); color: var(--accent); }
+table.compare .country { color: var(--text-3); font-weight: 400; font-size: 12px; }
+
+/* City housing block */
+.city-housing { margin-top: 9px; padding: 9px 11px; background: var(--surface-2); border-radius: 8px; }
+.city-housing .blk-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); display: block; margin-bottom: 3px; }
+
 @media (max-width: 640px) {
   main { padding: 18px 14px 50px; }
   .topbar { padding: 12px 14px; }
   .kv { grid-template-columns: 1fr; }
   .kv dt { margin-top: 6px; }
   .countdown { font-size: 24px; }
+  /* Accordion banner: rank + name + chevron on line 1, metrics wrap to line 2 */
+  .uni-banner { flex-wrap: wrap; gap: 8px 10px; }
+  .ub-rank { order: 0; }
+  .ub-name { order: 1; }
+  .ub-chev { order: 2; }
+  .ub-tags { order: 3; flex: 1 1 100%; justify-content: flex-start; }
+  .ub-prog { white-space: normal; }
+  .scorebar { grid-template-columns: 80px 1fr 18px; }
+  table.data, table.compare { font-size: 12px; }
+  table.data th, table.data td { padding: 6px 7px; }
+}
+
+/* Respect reduced-motion: skip growth/reveal/count-up transitions */
+@media (prefers-reduced-motion: reduce) {
+  .sb-track i, .cost-bar i, .ub-chev, .progress > div { transition: none !important; }
+  .uni-detail { animation: none !important; }
 }
