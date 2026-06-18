@@ -81,6 +81,34 @@
     return `<span class="deadline-chip ${cls}">${esc(p.deadline)} · ${approx}${rel}</span>`;
   }
 
+  // Compact deadline chip for the collapsed banner: short date (from deadlineSort) + countdown.
+  function deadlineMini(o) {
+    if (!o.deadlineSort) return "";
+    const d = daysUntil(o.deadlineSort);
+    const cls = d < 0 ? "past" : (d <= 45 ? "soon" : "");
+    const rel = d < 0 ? "passed" : (d === 0 ? "today" : `in ${d}d`);
+    const approx = o.deadlineEstimate ? "~" : "";
+    return `<span class="ub-dl ${cls}"><span class="ub-dl-date">${approx}${fmtDate(o.deadlineSort)}</span><span class="ub-dl-rel">${rel}</span></span>`;
+  }
+
+  // Full, clear deadline block (non-EU / international) from o.deadlineDetail.
+  function deadlineBlock(o) {
+    const d = o.deadlineDetail;
+    const chip = deadlineChip(o);
+    if (!d) return `<div class="prog-block deadline-block"><span class="blk-label">Deadline — non-EU / international</span>${chip}</div>`;
+    const row = (k, v) => v ? `<div class="dl-row"><span class="dl-k">${k}</span> ${esc(v)}</div>` : "";
+    return `
+      <div class="prog-block deadline-block">
+        <span class="blk-label">Deadline — non-EU / international</span>
+        <div class="dl-headline">${esc(d.nonEU)}</div>
+        ${row("Opens", d.opens)}
+        ${row("Earliest / scholarship", d.earliest)}
+        ${row("Visa", d.visa)}
+        <div class="dl-foot">${chip}${d.verified ? ` · <span class="tiny">${esc(d.verified)}</span>` : ""}</div>
+        ${d.cycle ? `<div class="tiny" style="margin-top:3px;">${esc(d.cycle)}</div>` : ""}
+      </div>`;
+  }
+
   // ------------------------------------------------------------ cost / score / toggle helpers
   function euMode() { return (state.filters && state.filters.euStatus) === "eu" ? "eu" : "nonEu"; }
   function scholarshipOn() { return !!(state.filters && state.filters.scholarship); }
@@ -497,7 +525,7 @@
           <option value="rank" ${sort === "rank" ? "selected" : ""}>By rank</option>
           <option value="total" ${sort === "total" ? "selected" : ""}>By yearly total</option>
           <option value="odds" ${sort === "odds" ? "selected" : ""}>By admission chance</option>
-          <option value="deadline" ${sort === "deadline" ? "selected" : ""}>By deadline</option>
+          <option value="deadline" ${sort === "deadline" ? "selected" : ""}>Nearest deadline first</option>
           <option value="tier" ${sort === "tier" ? "selected" : ""}>By tier</option>
           <option value="name" ${sort === "name" ? "selected" : ""}>By name</option>
         </select>
@@ -533,6 +561,7 @@
             <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>
             ${isNum(mid) ? `<span class="ub-metric chance"><span class="metric-num" data-countup="${mid}">0</span><span class="mu">%</span><span class="ml">chance</span></span>` : ""}
             <span class="ub-metric"><span class="metric-num">${eur(activeTotal(p))}</span><span class="ml">/yr ${euMode() === "eu" ? "EU" : "non-EU"}</span></span>
+            ${deadlineMini(p)}
           </span>
           <span class="ub-chev" aria-hidden="true">▸</span>
         </summary>
@@ -554,6 +583,7 @@
             ${p.odds.scrutinyNote ? `<div class="tiny" style="margin-top:4px;">${esc(p.odds.scrutinyNote)}</div>` : ""}
           </div>
 
+          ${deadlineBlock(p)}
           ${scoresChart(p)}
           ${costDetail(p)}
           ${scholarshipDetail(p)}
@@ -580,7 +610,6 @@
           </div>
 
           <div class="prog-controls">
-            ${deadlineChip(p)}
             <select data-status="${p.id}" class="${statusCls}">
               ${STATUSES.map(s => `<option ${s === status ? "selected" : ""}>${s}</option>`).join("")}
             </select>
@@ -612,6 +641,7 @@
             <span class="badge ${tierClass(r.tier)}">${tierLabel(r.tier)}</span>
             ${/pending|likely supplementary/i.test(r.suppRisk || "") ? `<span class="badge warn">${esc(r.suppRisk)}</span>` : ""}
             <span class="ub-metric"><span class="metric-num">${eur(activeTotal(r))}</span><span class="ml">/yr ${euMode() === "eu" ? "EU" : "non-EU"}</span></span>
+            ${deadlineMini(r)}
           </span>
           <span class="ub-chev" aria-hidden="true">▸</span>
         </summary>
@@ -622,6 +652,7 @@
           </div>
           <div class="prog-fit">${esc(r.summaryText || r.reason)}</div>
           ${r.tradeoffs ? `<div class="tiny" style="margin-bottom:6px;">Trade-offs: ${esc(r.tradeoffs)}</div>` : ""}
+          ${deadlineBlock(r)}
           ${scoresChart(r)}
           ${costDetail(r)}
           ${scholarshipDetail(r)}
