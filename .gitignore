@@ -13,3 +13,6 @@ tools/merge_deadlines.py
 
 .claude/
 .DS_Store
+
+# Local-only notes (not for the public repo)
+GITHUB_ACCESS.md

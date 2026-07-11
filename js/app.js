@@ -873,9 +873,10 @@
         <div class="card">
           <h4>GPA</h4>
           <dl class="kv">
-            <dt>Cumulative</dt><dd>${DATA.gpa.cumulative} / 4.0</dd>
+            <dt>Cumulative</dt><dd>${DATA.gpa.cumulative} / 4.3</dd>
             <dt>Scale</dt><dd>${esc(DATA.gpa.scale)}</dd>
             <dt>Trend</dt><dd>${DATA.gpa.semesters.map(s => s.value ?? s.expected).join(" → ")}</dd>
+            ${(DATA.gpa.conversions || []).map(c => `<dt>${esc(c.system)}</dt><dd>${esc(c.value)}</dd>`).join("")}
           </dl>
           <div class="prog-block" style="margin-top:10px;">${esc(DATA.gpa.framing)}</div>
           <div class="muted" style="margin-top:8px;">${DATA.gpa.weaknesses.map(esc).join("<br>")}</div>
