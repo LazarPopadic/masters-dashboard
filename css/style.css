@@ -483,6 +483,12 @@ table.compare .country { color: var(--text-3); font-weight: 400; font-size: 12px
 .seg-btn.on.neutral { color: var(--text); border-color: var(--text-3); background: var(--surface); }
 @media (prefers-reduced-motion: reduce) { .seg-btn { transition: none; } }
 
+/* Per-school application-documents checklist */
+.doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px 12px; margin-top: 4px; }
+.doc-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-2); cursor: pointer; }
+.doc-item input { accent-color: var(--likely); width: 14px; height: 14px; flex: 0 0 auto; }
+.doc-item.done { color: var(--text-3); text-decoration: line-through; }
+
 @media (max-width: 640px) {
   main { padding: 18px 14px 50px; }
   .topbar { padding: 12px 14px; }

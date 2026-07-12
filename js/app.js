@@ -20,6 +20,8 @@
   const KEY_KEY = "md_key_v1";
   const STATUSES = ["Not started", "Researching", "Drafting", "Submitted", "Interview", "Offer", "Rejected", "Declined"];
   const SUMMER_STATUSES = ["Probing", "Confirmed", "Declined", "Chosen ✓", "Optional"];
+  const LETTER_STATUSES = ["To ask", "Asked", "Agreed", "Drafted", "Submitted"];
+  const PRL_STATUSES = ["Not contacted", "Emailed", "Replied", "Meeting", "Agreed ✓", "Declined"];
 
   let DATA = null;
   let state = loadState();
@@ -63,6 +65,29 @@
   function prlOn() {
     const f = state.filters || {};
     return f.prl === undefined ? true : !!f.prl; // PRL assumed ON by default — it's the plan
+  }
+
+  // Per-school application-document checklist (ticks stored in state.docs as "progId:docKey").
+  const APP_DOCS = [
+    ["sop", "SOP tailored"], ["cv", "CV updated"], ["transcript", "Transcript"],
+    ["english", "English certificate"], ["letters", "Reference letters"],
+    ["portal", "Portal account"], ["fee", "Application fee"]
+  ];
+  function appDocs(p) { return p.country === "UK" ? APP_DOCS.concat([["atas", "ATAS (if required)"]]) : APP_DOCS; }
+  function docsBlock(p) {
+    const docs = appDocs(p);
+    const ticked = docs.filter(([k]) => state.docs && state.docs[p.id + ":" + k]).length;
+    return `
+      <div class="prog-block">
+        <span class="blk-label">Application documents · ${ticked}/${docs.length}</span>
+        <div class="doc-grid">
+          ${docs.map(([k, label]) => {
+            const key = p.id + ":" + k;
+            const on = !!(state.docs && state.docs[key]);
+            return `<label class="doc-item ${on ? "done" : ""}"><input type="checkbox" data-doc="${key}" ${on ? "checked" : ""}> ${label}</label>`;
+          }).join("")}
+        </div>
+      </div>`;
   }
 
   function verdictBadge(v) {
@@ -415,7 +440,7 @@
 
     const dueItems = [];
     DATA.checklist.forEach(ph => ph.items.forEach(it => {
-      if (state.checks?.[it.id]) return;
+      if (state.checks?.[it.id] || it.done) return;
       const d = daysUntil(it.due);
       if (d <= 7) dueItems.push({ ...it, d });
     }));
@@ -558,7 +583,7 @@
           <span class="ub-name">${esc(p.university)} <span class="country">${esc(p.country)}</span>
             <span class="ub-prog">${esc(p.programmes)}</span></span>
           <span class="ub-tags">
-            <span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>
+            ${p.dualDegree ? "" : `<span class="badge ${tierClass(p.tier)}">${tierLabel(p.tier)}</span>`}
             ${isNum(mid) ? `<span class="ub-metric chance"><span class="metric-num" data-countup="${mid}">0</span><span class="mu">%</span><span class="ml">chance</span></span>` : ""}
             <span class="ub-metric"><span class="metric-num">${eur(activeTotal(p))}</span><span class="ml">/yr ${euMode() === "eu" ? "EU" : "non-EU"}</span></span>
             ${deadlineMini(p)}
@@ -569,7 +594,7 @@
           <button class="star-btn ${ps.star ? "on" : ""}" data-star="${p.id}" title="Star for your apply list">${ps.star ? "★" : "☆"}</button>
           <div class="prog-meta">
             <span class="badge neutral">QS ${esc(p.qsRank)}</span>
-            ${p.score ? `<span class="badge neutral">fit ${p.score}/100</span>` : ""}
+            ${p.score ? `<span class="badge neutral">shortlist ${p.score}/100</span>` : ""}
             <span class="badge neutral">${esc(p.riskRole)}</span>
           </div>
           <div class="prog-fit">${esc(p.summaryText || p.whyKeep)}</div>
@@ -609,6 +634,7 @@
             <div class="tiny" style="margin-top:4px;">Next: ${esc(p.nextAction)}</div>
           </div>
 
+          ${docsBlock(p)}
           <div class="prog-controls">
             <select data-status="${p.id}" class="${statusCls}">
               ${STATUSES.map(s => `<option ${s === status ? "selected" : ""}>${s}</option>`).join("")}
@@ -773,7 +799,7 @@
 
   // ------------------------------------------------------------ CHECKLIST
   function checkItemHTML(it, phase) {
-    const done = !!state.checks?.[it.id];
+    const done = !!state.checks?.[it.id] || !!it.done; // it.done = resolved fact in the data, done everywhere
     const d = daysUntil(it.due);
     let dueCls = "due-later", dueTxt = fmtDate(it.due);
     if (done) { dueCls = "due-done"; dueTxt = "done"; }
@@ -790,9 +816,21 @@
   function renderChecklist() {
     return `
       <h2 class="section">Checklist</h2>
-      <p class="section-sub">The full plan from today to decision day, grouped by phase. The dashboard reads today's date — overdue items turn red, this week's turn amber.</p>
+      <p class="section-sub">The full plan from today to decision day, grouped by phase. The dashboard reads today's date — overdue items turn red, this week's turn amber. Resolved items are marked done in the data.</p>
+
+      ${DATA.prlTracker ? `
+      <h3 class="sub" style="margin-top:4px;">PRL outreach — the big lever</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">${esc(DATA.prlTracker.note)}</p>
+      <div class="grid cols-2">${trackerCards(DATA.prlTracker.targets, "prl", PRL_STATUSES)}</div>` : ""}
+
+      ${DATA.letters ? `
+      <h3 class="sub">Reference letters</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">${esc(DATA.letters.note)}</p>
+      <div class="grid cols-2">${trackerCards(DATA.letters.people, "letters", LETTER_STATUSES)}</div>` : ""}
+
+      <h3 class="sub">The plan</h3>
       ${DATA.checklist.map(ph => {
-        const done = ph.items.filter(i => state.checks?.[i.id]).length;
+        const done = ph.items.filter(i => state.checks?.[i.id] || i.done).length;
         const pct = Math.round(100 * done / ph.items.length);
         return `
         <div class="phase">
@@ -850,6 +888,31 @@
     return { "Probing": "warn", "Confirmed": "ok", "Chosen ✓": "ok", "Declined": "bad", "Optional": "neutral" }[st] || "neutral";
   }
 
+  // Shared status colouring + card renderer for the letters / PRL trackers (Summer-style UI).
+  function trackStatusClass(st) {
+    if (/agreed|submitted|chosen|confirmed/i.test(st)) return "ok";
+    if (/declined/i.test(st)) return "bad";
+    if (/asked|emailed|replied|meeting|drafted|probing/i.test(st)) return "warn";
+    return "neutral";
+  }
+  function trackerCards(list, stateKey, statuses) {
+    const st = state[stateKey] || {};
+    return list.map(pn => {
+      const cur = st[pn.id] || statuses[0];
+      return `
+      <div class="card summer-opt">
+        <div class="summer-opt-head">
+          <h4>${esc(pn.name)}</h4>
+          <span class="badge ${trackStatusClass(cur)}">${esc(cur)}</span>
+        </div>
+        <div class="muted summer-opt-role">${esc(pn.role || pn.focus || "")}</div>
+        <div class="seg-group" role="group" aria-label="Set status">
+          ${statuses.map(s => `<button class="seg-btn ${trackStatusClass(s)}${s === cur ? " on" : ""}" data-track="${stateKey}" data-track-id="${pn.id}" data-track-status="${esc(s)}">${esc(s)}</button>`).join("")}
+        </div>
+      </div>`;
+    }).join("");
+  }
+
   // ------------------------------------------------------------ PROFILE
   function renderProfile() {
     const pr = DATA.profile;
@@ -868,6 +931,7 @@
             <dt>IELTS</dt><dd>${esc(pr.tests.ielts)}</dd>
             <dt>SAT</dt><dd>${esc(pr.tests.sat)}</dd>
             <dt>GRE</dt><dd>${esc(pr.tests.gre)}</dd>
+            ${pr.tests.french ? `<dt>French</dt><dd>${esc(pr.tests.french)}</dd>` : ""}
           </dl>
         </div>
         <div class="card">
@@ -953,7 +1017,7 @@
 
       ${DATA.transition && DATA.transition.length ? `
       <h3 class="sub">Worker-transition — by round</h3>
-      <p class="tiny" style="margin:-4px 0 10px;">Croatia is the benchmark; the final treaty formula isn't public, so this uses Round 1 / 2 / 3, not fixed years. Tuition status is separate from worker-market access.</p>
+      <p class="tiny" style="margin:-4px 0 10px;">Croatia is the benchmark; the final treaty formula isn't public, so this uses Round 1 / 2 / 3, not fixed years. Tuition status is separate from worker-market access. Update: Chapter 2 (freedom of movement for workers) was provisionally closed on 15 Jun 2026 — the negotiated terms stay unpublished until every chapter closes, so this scenario model still applies.</p>
       <div class="table-wrap">
         <table class="data">
           <thead><tr><th>Country</th><th>Risk</th><th>Round 1 / 2 / 3</th><th>Fee-status implication</th></tr></thead>
@@ -965,6 +1029,22 @@
           </tr>`).join("")}</tbody>
         </table>
       </div>` : ""}
+
+      ${DATA.croatiaPrecedent ? `
+      <h3 class="sub">The Croatia precedent — how long Croatians actually waited</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">${esc(DATA.croatiaPrecedent.intro)}</p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Country</th><th>Universities here</th><th>Workers restricted for</th><th>What happened</th></tr></thead>
+          <tbody>${DATA.croatiaPrecedent.rows.map(r => `<tr>
+            <td style="white-space:nowrap;"><b>${esc(r.country)}</b></td>
+            <td>${esc(r.unis)}</td>
+            <td>${esc(r.restricted)}</td>
+            <td>${esc(r.detail)}</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <p class="tiny" style="margin-top:8px;">${esc(DATA.croatiaPrecedent.footer)}</p>` : ""}
 
       ${DATA.feeStatus && DATA.feeStatus.length ? `
       <h3 class="sub">Fee-status questions</h3>
@@ -1030,6 +1110,13 @@
         if (t.checked) state.checks[t.dataset.check] = true; else delete state.checks[t.dataset.check];
         saveState(); switchTab(state.tab);
       }
+      if (t.dataset.doc !== undefined && t.type === "checkbox") {
+        state.docs = state.docs || {};
+        if (t.checked) state.docs[t.dataset.doc] = true; else delete state.docs[t.dataset.doc];
+        saveState(); // no re-render: keeps the card open and the checkbox focused
+        const item = t.closest(".doc-item");
+        if (item) item.classList.toggle("done", t.checked);
+      }
       if (t.dataset.filter) {
         state.filters = state.filters || {};
         state.filters[t.dataset.filter] = t.value;
@@ -1090,6 +1177,12 @@
         state.summer = state.summer || {};
         state.summer[segBtn.dataset.summerSet] = segBtn.dataset.summerStatus;
         saveState(); switchTab("summer");
+      }
+      const trk = e.target.closest("[data-track]");
+      if (trk) {
+        state[trk.dataset.track] = state[trk.dataset.track] || {};
+        state[trk.dataset.track][trk.dataset.trackId] = trk.dataset.trackStatus;
+        saveState(); switchTab(state.tab);
       }
     });
   }
