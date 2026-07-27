@@ -90,6 +90,19 @@
       </div>`;
   }
 
+  // Verdict proposed by the 26 Jul 2026 relocation brief. Advisory only — the ranking is unchanged.
+  function briefVerdictBlock(p) {
+    const b = p.briefVerdict;
+    if (!b) return "";
+    const cls = /^CUT/.test(b.verdict) ? "bad" : /FLOOR|MAYBE|cheap to spend/.test(b.verdict) ? "warn" : "ok";
+    return `
+      <div class="prog-block brief-verdict ${cls}">
+        <span class="blk-label">Brief verdict <span class="badge ${cls}">${esc(b.verdict)}</span>${b.disputed ? ' <span class="badge warn">rests on a call you disputed</span>' : ""}</span>
+        ${esc(b.why)}
+        <div class="tiny" style="margin-top:4px;">${esc(b.stamp)} · advisory — the ranked order on this dashboard is unchanged.</div>
+      </div>`;
+  }
+
   function verdictBadge(v) {
     if (v === "clear") return '<span class="badge ok">You clear it ✓</span>';
     if (v === "borderline") return '<span class="badge warn">Borderline — check conversion</span>';
@@ -408,7 +421,7 @@
     const render = {
       overview: renderOverview, programs: renderPrograms, reserves: renderReserves, cities: renderCities,
       timeline: renderTimeline, checklist: renderChecklist, summer: renderSummer,
-      profile: renderProfile, strategy: renderStrategy, compare: renderCompare
+      profile: renderProfile, strategy: renderStrategy, compare: renderCompare, life: renderLife
     }[tab] || renderOverview;
     $("#main").innerHTML = render();
     enhance($("#main"));
@@ -608,6 +621,7 @@
             ${p.odds.scrutinyNote ? `<div class="tiny" style="margin-top:4px;">${esc(p.odds.scrutinyNote)}</div>` : ""}
           </div>
 
+          ${briefVerdictBlock(p)}
           ${deadlineBlock(p)}
           ${scoresChart(p)}
           ${costDetail(p)}
@@ -1056,6 +1070,94 @@
 
       <h3 class="sub">Caveats</h3>
       <div class="card"><ul class="clean">${st.caveats.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>`;
+  }
+
+  // ------------------------------------------------------------ LIFE & INTEGRATION
+  function renderLife() {
+    const L = DATA.life;
+    if (!L) return `<h2 class="section">Life & Integration</h2><div class="card muted">No data.</div>`;
+    return `
+      <h2 class="section">Life & Integration</h2>
+      <p class="section-sub">${esc(L.intro)} <span class="tiny">${esc(L.stamp)}</span></p>
+
+      <div class="card" style="border-left:3px solid var(--reach);">
+        <h4>The integration problem — the central finding</h4>
+        <div class="muted" style="margin:6px 0;">${esc(L.integration.symptom)}</div>
+        <div class="prog-block">${esc(L.integration.diagnosis)}</div>
+        <div class="prog-block" style="border-left:2px solid var(--match);">
+          <span class="blk-label"><span class="badge warn">watch out</span> the same trap, one country over</span>
+          ${esc(L.integration.warning)}
+        </div>
+        <ul class="clean">${L.integration.rules.map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+      </div>
+
+      <h3 class="sub">Decision criteria — final form</h3>
+      <div class="card"><ul class="clean">${L.criteria.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>
+
+      <h3 class="sub">The verdict</h3>
+      <div class="card">
+        <h4>${esc(L.verdict.primary)}</h4>
+        <div class="muted" style="margin:6px 0;">${esc(L.verdict.rationale)}</div>
+        <div class="prog-block" style="border-left:2px solid var(--match);">
+          <span class="blk-label"><span class="badge warn">your dispute</span></span>${esc(L.verdict.disputeNote)}
+        </div>
+        <div class="prog-block"><span class="blk-label">On the US branch</span>${esc(L.verdict.usBranch)}</div>
+      </div>
+
+      <h3 class="sub">Career ceilings for immigrants</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">Five mechanisms that behave independently: ${L.ceilings.mechanisms.map(m => esc(m.split("—")[0].trim())).join(" · ")}.</p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Country</th><th>Ceiling</th><th>How it actually works</th></tr></thead>
+          <tbody>${L.ceilings.byCountry.map(c => `<tr>
+            <td style="white-space:nowrap;"><b>${esc(c.country)}</b></td>
+            <td>${esc(c.level)}</td><td>${esc(c.text)}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div class="card" style="margin-top:12px;"><h4>The single conclusion</h4><div class="muted">${esc(L.ceilings.conclusion)}</div></div>
+
+      <h3 class="sub">Language strategy</h3>
+      <div class="card">
+        <ul class="clean">${L.language.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+        <div class="prog-block" style="margin-top:10px;">${esc(L.language.plan)}</div>
+        <div class="tiny" style="margin-top:6px;">${esc(L.language.exceptions)}</div>
+      </div>
+
+      <h3 class="sub">Acceptance vs belonging</h3>
+      <p class="tiny" style="margin:-4px 0 10px;">${esc(L.belonging.intro)}</p>
+      <div class="grid cols-2">
+        ${L.belonging.cities.map(c => `<div class="card"><h4>${esc(c.city)}</h4><div class="muted">${esc(c.character)}</div></div>`).join("")}
+      </div>
+
+      <h3 class="sub">Diaspora concentration</h3>
+      <div class="card">
+        <div class="muted" style="margin-bottom:8px;">${esc(L.diaspora.intro)}</div>
+        <dl class="kv">${L.diaspora.levels.map(l => `<dt>${esc(l.label)}</dt><dd>${esc(l.where)}</dd>`).join("")}</dl>
+        <div class="tiny" style="margin-top:8px;">${esc(L.diaspora.note)}</div>
+      </div>
+
+      <h3 class="sub">Housing mechanics by country</h3>
+      <div class="grid cols-2">
+        ${L.housing.map(h => `<div class="card"><h4>${esc(h.country)}</h4><div class="muted">${esc(h.text)}</div></div>`).join("")}
+      </div>
+
+      <h3 class="sub">Social profile</h3>
+      <div class="card">
+        <ul class="clean">${L.social.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+        <div class="prog-block" style="margin-top:10px;">${esc(L.social.conclusion)}</div>
+      </div>
+
+      ${DATA.verificationLog && DATA.verificationLog.length ? `
+      <h3 class="sub">Verification log — what the brief changed</h3>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Item</th><th>Was</th><th>Now</th><th>Source · checked</th></tr></thead>
+          <tbody>${DATA.verificationLog.map(v => `<tr>
+            <td><b>${esc(v.item)}</b><div class="tiny">${esc(v.tag)}</div></td>
+            <td class="tiny">${esc(v.old)}</td><td>${esc(v.new)}</td>
+            <td class="tiny">${esc(v.source)}<br>${esc(v.checked)}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>` : ""}`;
   }
 
   // ------------------------------------------------------------ COMPARE
