@@ -16,3 +16,4 @@ tools/merge_deadlines.py
 # Local-only notes (not for the public repo)
 GITHUB_ACCESS.md
 tools/apply_brief.py
+tools/build_cost_deck.py
