@@ -17,3 +17,6 @@ tools/merge_deadlines.py
 GITHUB_ACCESS.md
 tools/apply_brief.py
 tools/build_cost_deck.py
+tools/apply_audit.py
+tools/patch_deck_text.py
+tools/patch_deck_text2.py

@@ -1,14 +1,14 @@
 // Service worker — makes the dashboard open offline.
 // RELEASE RULE: when index.html bumps its ?v= asset versions, bump CACHE here
 // too (md-cache-v2, v3, …) and update the SHELL list to the new ?v= URLs.
-const CACHE = "md-cache-v12";
+const CACHE = "md-cache-v13";
 
 const SHELL = [
   "index.html",
-  "css/style.css?v=15",
-  "js/crypto.js?v=15",
-  "js/data.encrypted.js?v=15",
-  "js/app.js?v=15",
+  "css/style.css?v=16",
+  "js/crypto.js?v=16",
+  "js/data.encrypted.js?v=16",
+  "js/app.js?v=16",
   "manifest.webmanifest",
   "icons/icon.svg",
   "icons/apple-touch-icon.png",
