@@ -1,7 +1,6 @@
 # PRIVATE plaintext seed data — must never reach GitHub.
 data.source.js
-data.source.js.bak
-data.source.js.bak2
+data.source.js.bak*
 
 # Local build helpers — kept on-device only. reencrypt.py holds the password;
 # university_data.generated.json holds candid data in plaintext; the extractor
